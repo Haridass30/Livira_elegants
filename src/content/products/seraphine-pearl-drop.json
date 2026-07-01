@@ -1,0 +1,18 @@
+{
+  "name": "Seraphine Pearl Drop",
+  "price": 7499,
+  "category": "Necklaces",
+  "material": "14k gold-fill · freshwater baroque pearl",
+  "weightGrams": 5.0,
+  "dimensions": "Chain 45cm · pearl 9–11mm",
+  "description": "An irregular baroque pearl, each one unlike the last, on a delicate gold-fill chain.\n\nBecause the pearls are natural, expect gentle variation in shape and lustre — that is the point.",
+  "images": [
+    "../../assets/products/seraphine-pearl-drop-1.jpg",
+    "../../assets/products/seraphine-pearl-drop-2.jpg",
+    "../../assets/products/seraphine-pearl-drop-3.jpg"
+  ],
+  "inStock": true,
+  "featured": false,
+  "sku": "LV-N-002",
+  "tags": ["pearl", "baroque", "gift"]
+}

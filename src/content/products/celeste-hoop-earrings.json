@@ -1,0 +1,18 @@
+{
+  "name": "Celeste Hoop Earrings",
+  "price": 6299,
+  "category": "Earrings",
+  "material": "18k gold vermeil over recycled silver",
+  "weightGrams": 2.6,
+  "dimensions": "22mm diameter · 2mm tube",
+  "description": "The everyday hoop, refined. Lightweight, perfectly round, with a secure hinged closure.\n\nSubstantial enough to read as gold, light enough to forget you're wearing them.",
+  "images": [
+    "../../assets/products/celeste-hoop-earrings-1.jpg",
+    "../../assets/products/celeste-hoop-earrings-2.jpg",
+    "../../assets/products/celeste-hoop-earrings-3.jpg"
+  ],
+  "inStock": true,
+  "featured": true,
+  "sku": "LV-E-001",
+  "tags": ["hoops", "everyday", "vermeil"]
+}

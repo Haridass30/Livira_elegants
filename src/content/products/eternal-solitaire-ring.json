@@ -1,0 +1,19 @@
+{
+  "name": "Eternal Solitaire Ring",
+  "price": 12499,
+  "compareAtPrice": 14999,
+  "category": "Rings",
+  "material": "18k recycled yellow gold · 0.30ct lab-grown diamond",
+  "weightGrams": 3.2,
+  "dimensions": "Band 1.8mm · stone 4.3mm",
+  "description": "A single brilliant-cut stone, set high to catch the light from every angle.\n\nThe band is hand-finished in recycled 18k gold and sized to sit flush against a wedding band. Quietly classic — made to be worn for decades, not seasons.",
+  "images": [
+    "../../assets/products/eternal-solitaire-ring-1.jpg",
+    "../../assets/products/eternal-solitaire-ring-2.jpg",
+    "../../assets/products/eternal-solitaire-ring-3.jpg"
+  ],
+  "inStock": true,
+  "featured": true,
+  "sku": "LV-R-001",
+  "tags": ["diamond", "solitaire", "bridal"]
+}

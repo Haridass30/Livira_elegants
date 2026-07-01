@@ -1,0 +1,37 @@
+{
+  "name": "livira-elegants",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Livira — bespoke jewellery storefront (Astro + Cloudflare Pages)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "typecheck": "tsc --noEmit && tsc -p functions/tsconfig.json",
+    "pages:dev": "npm run build && wrangler pages dev --live-reload --port=8788",
+    "db:local": "wrangler d1 execute livira-db --local --file=./migrations/0001_init.sql",
+    "db:remote": "wrangler d1 execute livira-db --remote --file=./migrations/0001_init.sql"
+  },
+  "dependencies": {
+    "@astrojs/react": "^4.2.1",
+    "@astrojs/sitemap": "^3.2.1",
+    "@fontsource-variable/fraunces": "^5.1.1",
+    "@fontsource-variable/inter": "^5.1.1",
+    "@nanostores/persistent": "^0.10.2",
+    "@nanostores/react": "^0.8.4",
+    "astro": "^5.5.5",
+    "nanostores": "^0.11.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250321.0",
+    "@tailwindcss/vite": "^4.0.15",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "tailwindcss": "^4.0.15",
+    "typescript": "^5.8.2",
+    "wrangler": "^3.114.0"
+  }
+}

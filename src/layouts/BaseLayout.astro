@@ -1,0 +1,51 @@
+---
+// Self-hosted variable fonts (Fontsource) — only the weights we use.
+import "@fontsource-variable/fraunces";
+import "@fontsource-variable/inter";
+import "../styles/global.css";
+
+import Seo from "../components/Seo.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import CartDrawer from "../components/react/CartDrawer.tsx";
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: "website" | "article" | "product";
+  jsonLd?: Record<string, unknown>;
+  noindex?: boolean;
+  /** Set false on the homepage where the hero owns the top of the page. */
+  padTop?: boolean;
+}
+
+const { padTop = true, ...seo } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f8f4ed" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <Seo {...seo} />
+  </head>
+  <body>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-charcoal focus:text-ivory focus:px-4 focus:py-2"
+      >Skip to content</a
+    >
+    <Header />
+    <main id="main" class={padTop ? "pt-24 md:pt-28" : ""}>
+      <slot />
+    </main>
+    <Footer />
+
+    <!-- Cart slide-over: the only always-mounted island (shares the cart store). -->
+    <CartDrawer client:idle />
+  </body>
+</html>

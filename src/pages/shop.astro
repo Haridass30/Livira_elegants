@@ -1,0 +1,152 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ProductCard from "../components/ProductCard.astro";
+import { categories } from "../config";
+
+const products = await getCollection("products");
+// Stable default order: in-stock & featured first, then by name.
+products.sort((a, b) => {
+  const score = (x: typeof a) =>
+    (x.data.inStock ? 0 : 2) + (x.data.featured ? -1 : 0);
+  return score(a) - score(b) || a.data.name.localeCompare(b.data.name);
+});
+
+const filters = ["All", ...categories] as const;
+---
+
+<BaseLayout
+  title="Shop"
+  description="The full Livira collection — rings, necklaces, earrings and bangles, handcrafted in India."
+>
+  <section class="container-page py-12 md:py-16">
+    <header class="max-w-2xl">
+      <p class="eyebrow">The collection</p>
+      <h1 class="mt-3 font-serif text-4xl md:text-5xl">Shop all</h1>
+      <p class="mt-4 text-charcoal/65">
+        {products.length} pieces, each finished by hand. Filter by category or sort by price.
+      </p>
+    </header>
+
+    <!-- Controls -->
+    <div
+      class="mt-10 flex flex-col gap-4 border-y hairline py-4 md:flex-row md:items-center md:justify-between"
+    >
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+        {
+          filters.map((f) => (
+            <button
+              type="button"
+              data-filter={f}
+              class="filter-btn border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory"
+            >
+              {f}
+            </button>
+          ))
+        }
+      </div>
+      <label class="flex items-center gap-3 text-xs uppercase tracking-[0.12em] text-charcoal/60">
+        Sort
+        <select
+          id="sort"
+          class="border hairline bg-ivory px-3 py-2 text-charcoal outline-none focus:border-champagne"
+        >
+          <option value="featured">Featured</option>
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+          <option value="name">Name: A–Z</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Grid -->
+    <div
+      id="product-grid"
+      class="mt-12 grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-3 md:gap-x-8 lg:grid-cols-4"
+    >
+      {
+        products.map((entry, i) => (
+          <div
+            class="product-item"
+            data-category={entry.data.category}
+            data-price={entry.data.price}
+            data-name={entry.data.name}
+            data-order={i}
+          >
+            <ProductCard entry={entry} priority={i < 4} />
+          </div>
+        ))
+      }
+    </div>
+
+    <p id="empty-state" class="hidden py-20 text-center text-charcoal/55">
+      No pieces in this category yet.
+    </p>
+  </section>
+</BaseLayout>
+
+<script>
+  const grid = document.getElementById("product-grid")!;
+  const items = Array.from(
+    grid.querySelectorAll<HTMLElement>(".product-item"),
+  );
+  const filterBtns = document.querySelectorAll<HTMLButtonElement>(".filter-btn");
+  const sortSel = document.getElementById("sort") as HTMLSelectElement;
+  const empty = document.getElementById("empty-state")!;
+
+  let activeFilter = "All";
+
+  function apply() {
+    // Filter
+    let visible = 0;
+    for (const el of items) {
+      const show = activeFilter === "All" || el.dataset.category === activeFilter;
+      el.style.display = show ? "" : "none";
+      if (show) visible++;
+    }
+    empty.classList.toggle("hidden", visible > 0);
+
+    // Sort (reorder visible nodes)
+    const sort = sortSel.value;
+    const sorted = [...items].sort((a, b) => {
+      const pa = +a.dataset.price!,
+        pb = +b.dataset.price!;
+      switch (sort) {
+        case "price-asc":
+          return pa - pb;
+        case "price-desc":
+          return pb - pa;
+        case "name":
+          return a.dataset.name!.localeCompare(b.dataset.name!);
+        default:
+          return +a.dataset.order! - +b.dataset.order!;
+      }
+    });
+    sorted.forEach((el) => grid.appendChild(el));
+  }
+
+  function setFilter(f: string) {
+    activeFilter = f;
+    filterBtns.forEach((b) =>
+      b.setAttribute("data-active", String(b.dataset.filter === f)),
+    );
+    const url = new URL(window.location.href);
+    if (f === "All") url.searchParams.delete("category");
+    else url.searchParams.set("category", f);
+    history.replaceState({}, "", url);
+    apply();
+  }
+
+  filterBtns.forEach((b) =>
+    b.addEventListener("click", () => setFilter(b.dataset.filter!)),
+  );
+  sortSel.addEventListener("change", apply);
+
+  // Honour ?category= deep links (e.g. from the homepage tiles).
+  const initial = new URLSearchParams(location.search).get("category");
+  setFilter(
+    initial && [...filterBtns].some((b) => b.dataset.filter === initial)
+      ? initial
+      : "All",
+  );
+</script>

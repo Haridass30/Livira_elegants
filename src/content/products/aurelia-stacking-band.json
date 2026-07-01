@@ -1,0 +1,18 @@
+{
+  "name": "Aurelia Stacking Band",
+  "price": 5499,
+  "category": "Rings",
+  "material": "14k recycled rose gold",
+  "weightGrams": 1.9,
+  "dimensions": "Band 1.4mm",
+  "description": "A whisper-thin band designed to be worn alone or stacked three-deep.\n\nGently domed and polished to a soft sheen, it reads as light catching skin rather than metal.",
+  "images": [
+    "../../assets/products/aurelia-stacking-band-1.jpg",
+    "../../assets/products/aurelia-stacking-band-2.jpg",
+    "../../assets/products/aurelia-stacking-band-3.jpg"
+  ],
+  "inStock": true,
+  "featured": false,
+  "sku": "LV-R-002",
+  "tags": ["stacking", "everyday", "rose gold"]
+}

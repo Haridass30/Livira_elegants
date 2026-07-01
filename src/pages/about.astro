@@ -1,0 +1,66 @@
+---
+import { Image } from "astro:assets";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { site } from "../config";
+import aboutImg from "../assets/about.jpg";
+---
+
+<BaseLayout
+  title="About"
+  description={`The story behind ${site.name} — handcrafted fine jewellery from India.`}
+>
+  <section class="container-page py-14 md:py-20">
+    <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+      <div>
+        <p class="eyebrow">Our story</p>
+        <h1 class="mt-3 font-serif text-4xl leading-tight md:text-5xl">
+          Jewellery made the slow way
+        </h1>
+        <div class="mt-6 space-y-5 leading-relaxed text-charcoal/80">
+          <p>
+            {site.name} began with a simple conviction: that fine jewellery should
+            be made to last, made by hand, and made without compromise — to the
+            people who make it or the planet it comes from.
+          </p>
+          <p>
+            {/* TODO(owner): replace with your real founder/brand story. */}
+            Every piece is finished in small batches in our atelier in India,
+            using recycled gold and silver and responsibly sourced stones. We
+            keep our collection small on purpose — a few pieces, done properly.
+          </p>
+          <p>
+            What you buy from us is meant to be worn every day and kept for a
+            lifetime, then passed on.
+          </p>
+        </div>
+        <a href="/shop" class="btn btn-primary mt-8">Explore the collection</a>
+      </div>
+      <div class="overflow-hidden rounded-[2px]">
+        <Image
+          src={aboutImg}
+          alt="Inside the Livira atelier"
+          widths={[480, 720, 960]}
+          sizes="(min-width:1024px) 45vw, 90vw"
+          class="aspect-[4/5] w-full object-cover"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="border-y hairline bg-bone/50">
+    <div class="container-page grid gap-8 py-16 md:grid-cols-3">
+      {
+        [
+          ["Responsibly made", "Recycled metals and conflict-free, lab-grown or ethically sourced stones."],
+          ["Hand-finished", "Each piece is set and polished by hand, never mass-produced."],
+          ["Built to keep", "Hallmarked, guaranteed, and made to be repaired — not replaced."],
+        ].map(([t, d]) => (
+          <div>
+            <h2 class="font-serif text-xl">{t}</h2>
+            <p class="mt-2 text-sm leading-relaxed text-charcoal/65">{d}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+</BaseLayout>

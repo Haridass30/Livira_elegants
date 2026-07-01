@@ -1,0 +1,76 @@
+---
+import { site, nav } from "../config";
+
+const waDigits = site.whatsapp.replace(/\D/g, "");
+const year = 2026; // build-time constant; bump as needed
+---
+
+<footer class="mt-28 border-t hairline bg-bone/60">
+  <div class="container-page grid gap-12 py-16 md:grid-cols-[1.4fr_1fr_1fr]">
+    <div>
+      <p class="font-serif text-2xl tracking-[0.16em]">{site.name.toUpperCase()}</p>
+      <p class="mt-4 max-w-xs text-sm leading-relaxed text-charcoal/70">
+        {site.statement}
+      </p>
+    </div>
+
+    <nav aria-label="Footer">
+      <p class="eyebrow mb-4">Explore</p>
+      <ul class="space-y-2.5 text-sm">
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} class="link-underline text-charcoal/75">
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div>
+      <p class="eyebrow mb-4">Contact</p>
+      <ul class="space-y-2.5 text-sm text-charcoal/75">
+        <li>
+          <a class="link-underline" href={`mailto:${site.supportEmail}`}>
+            {site.supportEmail}
+          </a>
+        </li>
+        <li>
+          <a
+            class="link-underline"
+            href={`https://wa.me/${waDigits}`}
+            target="_blank"
+            rel="noopener"
+          >
+            WhatsApp us
+          </a>
+        </li>
+        {
+          site.instagram && (
+            <li>
+              <a
+                class="link-underline"
+                href={`https://instagram.com/${site.instagram}`}
+                target="_blank"
+                rel="noopener"
+              >
+                @{site.instagram}
+              </a>
+            </li>
+          )
+        }
+      </ul>
+    </div>
+  </div>
+
+  <div class="border-t hairline">
+    <div
+      class="container-page flex flex-col items-center justify-between gap-2 py-6 text-xs text-charcoal/55 md:flex-row"
+    >
+      <p>© {year} {site.name}. Handcrafted in India.</p>
+      <p>{site.showGstNote ? site.gstNote : ""}</p>
+    </div>
+  </div>
+</footer>

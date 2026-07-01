@@ -1,0 +1,64 @@
+---
+import { Image } from "astro:assets";
+import type { CollectionEntry } from "astro:content";
+import { formatINR } from "../lib/format";
+
+interface Props {
+  entry: CollectionEntry<"products">;
+  /** Eager-load the first row above the fold; lazy-load the rest. */
+  priority?: boolean;
+  class?: string;
+}
+
+const { entry, priority = false, class: className = "" } = Astro.props;
+const p = entry.data;
+const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
+---
+
+<a
+  href={`/product/${entry.id}`}
+  class:list={["group block", className]}
+  aria-label={`${p.name}, ${formatINR(p.price)}`}
+>
+  <div class="relative overflow-hidden bg-bone" style="aspect-ratio: 4 / 5;">
+    <Image
+      src={p.images[0]}
+      alt={p.name}
+      widths={[280, 420, 640, 900]}
+      sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
+      loading={priority ? "eager" : "lazy"}
+      fetchpriority={priority ? "high" : "auto"}
+      class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
+    />
+    {
+      onSale && (
+        <span class="absolute left-3 top-3 bg-charcoal px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-ivory">
+          Sale
+        </span>
+      )
+    }
+    {
+      !p.inStock && (
+        <span class="absolute left-3 top-3 bg-ivory/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-charcoal">
+          Sold out
+        </span>
+      )
+    }
+  </div>
+  <div class="pt-4">
+    <p class="text-[11px] uppercase tracking-[0.16em] text-charcoal/45">
+      {p.category}
+    </p>
+    <h3 class="mt-1 font-serif text-lg leading-snug">{p.name}</h3>
+    <p class="mt-1 flex items-baseline gap-2 text-sm">
+      <span>{formatINR(p.price)}</span>
+      {
+        onSale && (
+          <span class="text-charcoal/40 line-through">
+            {formatINR(p.compareAtPrice!)}
+          </span>
+        )
+      }
+    </p>
+  </div>
+</a>

@@ -1,0 +1,19 @@
+{
+  "name": "Mira Stud Earrings",
+  "price": 4299,
+  "compareAtPrice": 4999,
+  "category": "Earrings",
+  "material": "14k recycled white gold · 0.10ct lab diamonds",
+  "weightGrams": 1.1,
+  "dimensions": "3mm stones · screw-back posts",
+  "description": "Classic diamond studs in a four-prong martini setting, finished with secure screw backs.\n\nThe pieces you reach for without thinking — and never take off.",
+  "images": [
+    "../../assets/products/mira-stud-earrings-1.jpg",
+    "../../assets/products/mira-stud-earrings-2.jpg",
+    "../../assets/products/mira-stud-earrings-3.jpg"
+  ],
+  "inStock": false,
+  "featured": false,
+  "sku": "LV-E-002",
+  "tags": ["studs", "diamond", "classic"]
+}

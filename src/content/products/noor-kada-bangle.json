@@ -1,0 +1,18 @@
+{
+  "name": "Noor Kada Bangle",
+  "price": 15999,
+  "category": "Bangles",
+  "material": "22k gold-plated brass · hand-engraved",
+  "weightGrams": 28.0,
+  "dimensions": "Inner diameter 2.6\" (size M) · 8mm wide",
+  "description": "A weighty kada with hand-engraved detailing along the outer face, inspired by temple jewellery.\n\nMade to order in three sizes; allow 5–7 days for the engraving to be completed by hand.",
+  "images": [
+    "../../assets/products/noor-kada-bangle-1.jpg",
+    "../../assets/products/noor-kada-bangle-2.jpg",
+    "../../assets/products/noor-kada-bangle-3.jpg"
+  ],
+  "inStock": true,
+  "featured": true,
+  "sku": "LV-B-001",
+  "tags": ["kada", "engraved", "statement"]
+}

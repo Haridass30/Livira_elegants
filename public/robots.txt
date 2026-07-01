@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /checkout
+Disallow: /order/
+
+# TODO(owner): update the host to your production domain.
+Sitemap: https://livira.example.com/sitemap-index.xml

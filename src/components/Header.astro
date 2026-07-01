@@ -1,0 +1,113 @@
+---
+import { site, nav } from "../config";
+import CartButton from "./react/CartButton.tsx";
+
+const path = Astro.url.pathname;
+const isActive = (href: string) =>
+  href === "/" ? path === "/" : path.startsWith(href);
+---
+
+<header
+  id="site-header"
+  class="fixed inset-x-0 top-0 z-40 transition-colors duration-500"
+  data-transparent="true"
+>
+  <div class="container-page flex h-20 items-center justify-between md:h-24">
+    <!-- Left: mobile menu toggle -->
+    <button
+      type="button"
+      id="menu-toggle"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="mobile-nav"
+      class="flex h-10 w-10 items-center justify-center md:hidden"
+    >
+      <span class="sr-only">Menu</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="1.4" />
+      </svg>
+    </button>
+
+    <!-- Center-left: desktop nav -->
+    <nav class="hidden items-center gap-9 md:flex" aria-label="Primary">
+      {
+        nav.map((item) => (
+          <a
+            href={item.href}
+            class:list={[
+              "link-underline text-[0.78rem] uppercase tracking-[0.16em]",
+              isActive(item.href) ? "text-champagne" : "text-charcoal/80 hover:text-charcoal",
+            ]}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <!-- Wordmark -->
+    <a
+      href="/"
+      class="absolute left-1/2 -translate-x-1/2 font-serif text-2xl tracking-[0.18em] md:text-[1.7rem]"
+      aria-label={`${site.name} — home`}
+    >
+      {site.name.toUpperCase()}
+    </a>
+
+    <!-- Right: cart -->
+    <div class="flex items-center justify-end">
+      <CartButton client:load />
+    </div>
+  </div>
+
+  <!-- Mobile nav panel -->
+  <div
+    id="mobile-nav"
+    class="hidden border-t hairline bg-ivory md:hidden"
+  >
+    <nav class="container-page flex flex-col py-4" aria-label="Mobile">
+      {
+        nav.map((item) => (
+          <a
+            href={item.href}
+            class:list={[
+              "py-3 text-sm uppercase tracking-[0.16em]",
+              isActive(item.href) ? "text-champagne" : "text-charcoal/80",
+            ]}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</header>
+
+<script>
+  // Transparent-over-hero header that turns solid on scroll, plus mobile menu.
+  const header = document.getElementById("site-header");
+  const toggle = document.getElementById("menu-toggle");
+  const panel = document.getElementById("mobile-nav");
+
+  function applyScrollState() {
+    if (!header) return;
+    const solid = window.scrollY > 24 || header.dataset.transparent !== "true";
+    header.classList.toggle("bg-ivory/95", solid);
+    header.classList.toggle("backdrop-blur", solid);
+    header.classList.toggle("border-b", solid);
+    header.classList.toggle("hairline", solid);
+  }
+
+  // Pages without a hero are solid from the start.
+  if (!document.querySelector("[data-has-hero]")) {
+    header?.setAttribute("data-transparent", "false");
+  }
+  applyScrollState();
+  window.addEventListener("scroll", applyScrollState, { passive: true });
+
+  toggle?.addEventListener("click", () => {
+    const open = panel?.classList.toggle("hidden") === false;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  });
+</script>

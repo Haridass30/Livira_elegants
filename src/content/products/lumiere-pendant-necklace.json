@@ -1,0 +1,19 @@
+{
+  "name": "Lumière Pendant Necklace",
+  "price": 8999,
+  "compareAtPrice": 10499,
+  "category": "Necklaces",
+  "material": "18k gold vermeil · 0.12ct lab diamond",
+  "weightGrams": 4.1,
+  "dimensions": "Chain 42cm + 4cm extender · pendant 7mm",
+  "description": "A solitary stone suspended on a fine cable chain — luminous against the collarbone.\n\nThe adjustable extender lets it sit high as a choker or longer for layering.",
+  "images": [
+    "../../assets/products/lumiere-pendant-necklace-1.jpg",
+    "../../assets/products/lumiere-pendant-necklace-2.jpg",
+    "../../assets/products/lumiere-pendant-necklace-3.jpg"
+  ],
+  "inStock": true,
+  "featured": true,
+  "sku": "LV-N-001",
+  "tags": ["pendant", "diamond", "layering"]
+}

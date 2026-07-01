@@ -1,0 +1,96 @@
+---
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+interface Props {
+  images: ImageMetadata[];
+  name: string;
+}
+const { images, name } = Astro.props;
+---
+
+<div class="gallery" data-gallery>
+  <!-- Mobile: native swipe carousel (scroll-snap) -->
+  <div
+    class="flex snap-x snap-mandatory gap-3 overflow-x-auto md:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
+    style="scroll-padding:0"
+  >
+    {
+      images.map((img, i) => (
+        <div class="w-[85%] shrink-0 snap-center first:ml-0">
+          <Image
+            src={img}
+            alt={`${name} — view ${i + 1}`}
+            widths={[420, 640, 900]}
+            sizes="85vw"
+            loading={i === 0 ? "eager" : "lazy"}
+            fetchpriority={i === 0 ? "high" : "auto"}
+            class="aspect-[4/5] w-full rounded-[2px] object-cover"
+          />
+        </div>
+      ))
+    }
+  </div>
+
+  <!-- Desktop: thumbnail rail + large main image -->
+  <div class="hidden gap-4 md:grid md:grid-cols-[84px_1fr]">
+    <div class="flex flex-col gap-3" role="tablist" aria-label={`${name} images`}>
+      {
+        images.map((img, i) => (
+          <button
+            type="button"
+            data-thumb={i}
+            role="tab"
+            aria-selected={i === 0 ? "true" : "false"}
+            aria-label={`Show view ${i + 1}`}
+            class="overflow-hidden rounded-[2px] border transition-colors aria-[selected=true]:border-champagne border-charcoal/15"
+          >
+            <Image
+              src={img}
+              alt=""
+              widths={[84, 168]}
+              sizes="84px"
+              loading="lazy"
+              class="aspect-[4/5] w-full object-cover"
+            />
+          </button>
+        ))
+      }
+    </div>
+    <div class="relative">
+      {
+        images.map((img, i) => (
+          <div data-main={i} class={i === 0 ? "" : "hidden"}>
+            <Image
+              src={img}
+              alt={`${name} — view ${i + 1}`}
+              widths={[640, 900, 1200]}
+              sizes="(min-width:1024px) 45vw, 60vw"
+              loading={i === 0 ? "eager" : "lazy"}
+              fetchpriority={i === 0 ? "high" : "auto"}
+              class="aspect-[4/5] w-full rounded-[2px] object-cover"
+            />
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-gallery]").forEach((root) => {
+    const thumbs = root.querySelectorAll<HTMLButtonElement>("[data-thumb]");
+    const mains = root.querySelectorAll<HTMLElement>("[data-main]");
+    thumbs.forEach((thumb) => {
+      thumb.addEventListener("click", () => {
+        const idx = thumb.dataset.thumb;
+        thumbs.forEach((t) =>
+          t.setAttribute("aria-selected", String(t.dataset.thumb === idx)),
+        );
+        mains.forEach((m) =>
+          m.classList.toggle("hidden", m.dataset.main !== idx),
+        );
+      });
+    });
+  });
+</script>

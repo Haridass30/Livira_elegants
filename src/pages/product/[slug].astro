@@ -1,0 +1,175 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import { getImage } from "astro:assets";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Gallery from "../../components/Gallery.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import AddToBag from "../../components/react/AddToBag.tsx";
+import { formatINR } from "../../lib/format";
+import { site } from "../../config";
+
+export async function getStaticPaths() {
+  const products = await getCollection("products");
+  return products.map((entry) => ({ params: { slug: entry.id } }));
+}
+
+const { slug } = Astro.params;
+const entry = await getEntry("products", slug!);
+if (!entry) return Astro.redirect("/404");
+const p = entry.data;
+
+// Small optimised thumbnail URL for the cart line (string, not <Image>).
+const thumb = await getImage({
+  src: p.images[0],
+  width: 144,
+  height: 180,
+  format: "webp",
+});
+
+// OG image (absolute URL) for this product.
+const og = await getImage({ src: p.images[0], width: 1200, height: 1500 });
+
+const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
+const paragraphs = p.description.split(/\n\s*\n/).filter(Boolean);
+
+const related = (await getCollection("products"))
+  .filter((e) => e.id !== entry.id && e.data.category === p.category)
+  .slice(0, 4);
+const fill =
+  related.length >= 4
+    ? related
+    : [
+        ...related,
+        ...(await getCollection("products")).filter(
+          (e) => e.id !== entry.id && e.data.category !== p.category,
+        ),
+      ].slice(0, 4);
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: p.name,
+  image: new URL(og.src, Astro.site).href,
+  description: p.description.replace(/\n+/g, " ").slice(0, 300),
+  sku: p.sku,
+  category: p.category,
+  brand: { "@type": "Brand", name: site.name },
+  offers: {
+    "@type": "Offer",
+    priceCurrency: "INR",
+    price: p.price,
+    availability: p.inStock
+      ? "https://schema.org/InStock"
+      : "https://schema.org/OutOfStock",
+    url: new URL(`/product/${entry.id}`, Astro.site).href,
+  },
+};
+---
+
+<BaseLayout
+  title={p.name}
+  description={paragraphs[0] ?? p.material}
+  image={og.src}
+  type="product"
+  jsonLd={jsonLd}
+>
+  <section class="container-page py-10 md:py-14">
+    <nav class="mb-8 text-xs uppercase tracking-[0.12em] text-charcoal/50">
+      <a href="/shop" class="link-underline">Shop</a>
+      <span class="px-2">/</span>
+      <a href={`/shop?category=${p.category}`} class="link-underline">{p.category}</a>
+    </nav>
+
+    <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
+      <Gallery images={p.images} name={p.name} />
+
+      <div class="lg:pt-4">
+        <p class="eyebrow">{p.category}</p>
+        <h1 class="mt-3 font-serif text-3xl leading-tight md:text-4xl">{p.name}</h1>
+
+        <div class="mt-4 flex items-baseline gap-3">
+          <span class="text-2xl">{formatINR(p.price)}</span>
+          {
+            onSale && (
+              <span class="text-lg text-charcoal/40 line-through">
+                {formatINR(p.compareAtPrice!)}
+              </span>
+            )
+          }
+        </div>
+        {
+          site.showGstNote && (
+            <p class="mt-1 text-xs text-charcoal/50">{site.gstNote}</p>
+          )
+        }
+
+        <div class="mt-8 space-y-4 text-[0.97rem] leading-relaxed text-charcoal/80">
+          {paragraphs.map((para) => <p>{para}</p>)}
+        </div>
+
+        <div class="mt-8">
+          <AddToBag
+            client:visible
+            inStock={p.inStock}
+            product={{
+              slug: entry.id,
+              name: p.name,
+              price: p.price,
+              image: thumb.src,
+            }}
+          />
+          {
+            !p.inStock && (
+              <p class="mt-3 text-sm text-charcoal/55">
+                This piece is currently sold out. {" "}
+                <a href="/contact" class="link-underline text-champagne">
+                  Ask about a waitlist
+                </a>
+                .
+              </p>
+            )
+          }
+        </div>
+
+        <!-- Specifications -->
+        <dl class="mt-10 divide-y divide-charcoal/10 border-y hairline text-sm">
+          {
+            [
+              ["Material", p.material],
+              p.weightGrams ? ["Weight", `${p.weightGrams} g`] : null,
+              p.dimensions ? ["Dimensions", p.dimensions] : null,
+              p.sku ? ["SKU", p.sku] : null,
+            ]
+              .filter((row): row is [string, string] => row !== null)
+              .map(([label, value]) => (
+                <div class="flex justify-between gap-6 py-3">
+                  <dt class="text-charcoal/55">{label}</dt>
+                  <dd class="text-right text-charcoal/85">{value}</dd>
+                </div>
+              ))
+          }
+        </dl>
+
+        <div class="mt-8 grid grid-cols-3 gap-4 text-center text-[11px] uppercase tracking-[0.1em] text-charcoal/55">
+          <span>Free shipping over {formatINR(site.freeShippingThreshold)}</span>
+          <span>Hallmarked metals</span>
+          <span>14-day returns</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Related -->
+  {
+    fill.length > 0 && (
+      <section class="container-page py-20">
+        <h2 class="mb-10 font-serif text-2xl md:text-3xl">You may also like</h2>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8">
+          {fill.map((e) => (
+            <ProductCard entry={e} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>

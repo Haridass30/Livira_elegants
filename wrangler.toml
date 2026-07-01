@@ -1,0 +1,33 @@
+# Cloudflare Pages configuration for Livira.
+#
+# Static assets are built by Astro into ./dist and served directly.
+# The /functions directory is auto-discovered by Cloudflare Pages and deployed
+# as Pages Functions (our order API). D1 is bound below as `DB`.
+#
+# Local dev:   npm run pages:dev   (wrangler pages dev with the DB binding)
+# Production:  bindings + secrets are configured in the Pages dashboard, but
+#              this file documents/seeds them and is used by `wrangler` CLI.
+
+name = "livira-elegants"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# --- D1 (orders database) ---------------------------------------------------
+# Create once:  wrangler d1 create livira-db
+# then paste the returned database_id below (and in the Pages dashboard).
+[[d1_databases]]
+binding = "DB"
+database_name = "livira-db"
+database_id = "TODO_REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# --- Non-secret vars --------------------------------------------------------
+# RAZORPAY_KEY_ID is public (used in client checkout too) so it can live here.
+# Secrets (RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, RESEND_API_KEY) must
+# be set with `wrangler pages secret put <NAME>` or in the dashboard — never here.
+[vars]
+RAZORPAY_KEY_ID = "rzp_test_TODO_REPLACE"
+OWNER_EMAIL = "kaaikanimarketing@gmail.com"          # TODO(owner): order notifications inbox
+FROM_EMAIL = "orders@livira.example.com"              # TODO(owner): verified Resend sender
+COD_MAX_ORDER_VALUE = "20000"                          # ₹ cap above which COD is disabled
+CURRENCY = "INR"

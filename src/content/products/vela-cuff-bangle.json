@@ -1,0 +1,18 @@
+{
+  "name": "Vela Cuff Bangle",
+  "price": 9299,
+  "category": "Bangles",
+  "material": "Recycled sterling silver · matte finish",
+  "weightGrams": 18.5,
+  "dimensions": "Open cuff · adjustable 6–7cm gap",
+  "description": "A clean, architectural open cuff with a soft matte finish that hides everyday wear.\n\nThe open back flexes gently to fit most wrists and slips on without a clasp.",
+  "images": [
+    "../../assets/products/vela-cuff-bangle-1.jpg",
+    "../../assets/products/vela-cuff-bangle-2.jpg",
+    "../../assets/products/vela-cuff-bangle-3.jpg"
+  ],
+  "inStock": true,
+  "featured": false,
+  "sku": "LV-B-002",
+  "tags": ["cuff", "silver", "minimal"]
+}

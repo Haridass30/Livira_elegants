@@ -1,0 +1,14 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CheckoutForm from "../components/react/CheckoutForm.tsx";
+---
+
+<BaseLayout title="Checkout" description="Securely complete your order." noindex>
+  <section class="container-page py-12 md:py-16">
+    <header class="mb-10">
+      <p class="eyebrow">Almost there</p>
+      <h1 class="mt-2 font-serif text-4xl md:text-5xl">Checkout</h1>
+    </header>
+    <CheckoutForm client:load />
+  </section>
+</BaseLayout>

@@ -1,0 +1,23 @@
+# Local secrets for `wrangler pages dev` (copy to `.dev.vars`, never commit it).
+# In production these are set in the Cloudflare Pages dashboard / via
+# `wrangler pages secret put <NAME>`.
+
+# Razorpay TEST keys for local development (dashboard → Settings → API Keys).
+RAZORPAY_KEY_ID="rzp_test_xxxxxxxxxxxxx"
+RAZORPAY_KEY_SECRET="your_test_key_secret"
+
+# Optional — only if you enable the webhook.
+RAZORPAY_WEBHOOK_SECRET="your_webhook_secret"
+
+# Optional — owner email notifications via Resend (https://resend.com).
+RESEND_API_KEY="re_xxxxxxxxxxxxx"
+OWNER_EMAIL="kaaikanimarketing@gmail.com"
+FROM_EMAIL="orders@yourdomain.com"
+
+# Admin dashboard (/admin) — set a strong password and a long random secret.
+ADMIN_PASSWORD="choose-a-strong-password"
+ADMIN_SESSION_SECRET="paste-a-long-random-string-here"
+
+# Non-secret config (also in wrangler.toml [vars]).
+COD_MAX_ORDER_VALUE="20000"
+CURRENCY="INR"
