@@ -38,6 +38,8 @@ export interface CreateOrderRequest {
   items: OrderItemInput[];
   customer: CustomerInput;
   method: CheckoutMethod;
+  /** Optional coupon code; validated & applied server-side only. */
+  couponCode?: string;
 }
 
 export interface VerifyOrderRequest {

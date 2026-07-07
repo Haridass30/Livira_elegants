@@ -92,7 +92,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         <td>${esc(o.customer_name)}<br><span class="muted" style="font-size:12px">${esc(o.phone)}<br>${esc(o.email)}</span><br><span class="muted" style="font-size:12px">${esc(o.address)}, ${esc(o.pincode)}</span></td>
         <td>${itemsCell(o.items)}</td>
         <td>${o.method === "cod" ? "COD" : "Online"}</td>
-        <td><strong>${money(o.amount_total)}</strong><br><span class="muted" style="font-size:11px">sub ${money(o.amount_subtotal)} · ship ${money(o.amount_shipping)}</span></td>
+        <td><strong>${money(o.amount_total)}</strong><br><span class="muted" style="font-size:11px">sub ${money(o.amount_subtotal)} · ship ${money(o.amount_shipping)}${o.amount_discount ? ` · −${money(o.amount_discount)}${o.coupon_code ? ` (${esc(o.coupon_code)})` : ""}` : ""}</span></td>
         <td><span class="badge s-${esc(o.status)}">${esc(o.status).replace("_", " ")}</span><div style="margin-top:8px">${statusForm(o.order_ref, o.status, filter)}</div></td>
       </tr>`,
           )

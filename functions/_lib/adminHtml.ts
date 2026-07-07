@@ -88,6 +88,10 @@ ${
         <span class="brand">LIVIRA · ADMIN</span>
         <nav>
           <a href="/admin">Orders</a>
+          <a href="/admin/products">Products</a>
+          <a href="/admin/coupons">Coupons</a>
+          <a href="/admin/customers">Customers</a>
+          <a href="/admin/settings">Settings</a>
           <form method="post" action="/admin/logout" style="display:inline">
             <button class="link" type="submit">Log out</button>
           </form>

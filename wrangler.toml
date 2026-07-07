@@ -19,7 +19,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "livira-db"
-database_id = "TODO_REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "8debdc4f-1c52-4bcb-a7bf-40425e9bb4b5"
 
 # --- Non-secret vars --------------------------------------------------------
 # RAZORPAY_KEY_ID is public (used in client checkout too) so it can live here.

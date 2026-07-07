@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@nanostores/react";
 import { $cart, $cartSubtotal, clearCart } from "../../stores/cart";
 import { formatINR } from "../../lib/format";
@@ -16,6 +16,16 @@ const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
 
 type FieldErrors = Partial<Record<keyof CustomerInput, string>>;
 
+/** Live store config from /api/config (admin-editable without redeploy). */
+interface StoreConfig {
+  codEnabled: boolean;
+  onlineEnabled: boolean;
+  codMaxOrderValue: number;
+  freeShippingThreshold: number;
+  flatShippingFee: number;
+  disabledProducts: string[];
+}
+
 export default function CheckoutForm() {
   const lines = useStore($cart);
   const subtotal = useStore($cartSubtotal);
@@ -32,19 +42,81 @@ export default function CheckoutForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  // Coupon state — validated server-side; this is display only.
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Live settings; fall back to the static site config until loaded.
+  const [config, setConfig] = useState<StoreConfig | null>(null);
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => c && setConfig(c as StoreConfig))
+      .catch(() => {});
+  }, []);
+
+  const freeShippingThreshold = config?.freeShippingThreshold ?? site.freeShippingThreshold;
+  const flatShippingFee = config?.flatShippingFee ?? site.flatShippingFee;
+  const codMaxOrderValue = config?.codMaxOrderValue ?? site.codMaxOrderValue;
+
   const shipping = useMemo(
     () =>
-      subtotal === 0 || subtotal >= site.freeShippingThreshold
-        ? 0
-        : site.flatShippingFee,
-    [subtotal],
+      subtotal === 0 || subtotal >= freeShippingThreshold ? 0 : flatShippingFee,
+    [subtotal, freeShippingThreshold, flatShippingFee],
   );
-  const total = subtotal + shipping;
+  const discount = coupon ? Math.min(coupon.discount, subtotal) : 0;
+  const total = Math.max(0, subtotal - discount) + shipping;
 
-  // COD guard rail (mirrors the server, which is authoritative).
-  const codAllowed = total <= site.codMaxOrderValue;
+  // Guard rails (mirror the server, which is authoritative).
+  const codEnabled = config?.codEnabled ?? true;
+  const onlineEnabled = config?.onlineEnabled ?? true;
+  const codAllowed = codEnabled && total <= codMaxOrderValue;
   const effectiveMethod: CheckoutMethod =
-    method === "cod" && !codAllowed ? "online" : method;
+    method === "cod"
+      ? codAllowed
+        ? "cod"
+        : "online"
+      : onlineEnabled
+        ? "online"
+        : codAllowed
+          ? "cod"
+          : "online";
+
+  async function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponError(null);
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          items: lines.map((l) => ({ slug: l.slug, qty: l.qty })),
+        }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        code?: string;
+        discount?: number;
+        error?: string;
+        errors?: string[];
+      };
+      if (res.ok && data.ok && data.code) {
+        setCoupon({ code: data.code, discount: data.discount ?? 0 });
+        setCouponInput("");
+      } else {
+        setCouponError(data.error || data.errors?.join(" ") || "Invalid coupon.");
+      }
+    } catch {
+      setCouponError("Could not check the coupon. Try again.");
+    } finally {
+      setCouponBusy(false);
+    }
+  }
 
   function update(field: keyof CustomerInput, value: string) {
     setCustomer((c) => ({ ...c, [field]: value }));
@@ -95,6 +167,7 @@ export default function CheckoutForm() {
         body: JSON.stringify({
           method: effectiveMethod,
           customer,
+          couponCode: coupon?.code,
           // Server only trusts slug + qty; it re-prices everything.
           items: lines.map((l) => ({ slug: l.slug, qty: l.qty })),
         }),
@@ -245,9 +318,14 @@ export default function CheckoutForm() {
           <MethodOption
             id="online"
             checked={effectiveMethod === "online"}
-            onSelect={() => setMethod("online")}
+            onSelect={() => onlineEnabled && setMethod("online")}
+            disabled={!onlineEnabled}
             title="Pay online"
-            subtitle="Card, UPI, netbanking — secured by Razorpay."
+            subtitle={
+              onlineEnabled
+                ? "Card, UPI, netbanking — secured by Razorpay."
+                : "Online payment is temporarily unavailable."
+            }
           />
           <MethodOption
             id="cod"
@@ -256,9 +334,11 @@ export default function CheckoutForm() {
             disabled={!codAllowed}
             title="Cash on Delivery"
             subtitle={
-              codAllowed
-                ? "Pay in cash when your order arrives."
-                : `Unavailable above ${formatINR(site.codMaxOrderValue)} — please pay online.`
+              !codEnabled
+                ? "Cash on Delivery is temporarily unavailable."
+                : codAllowed
+                  ? "Pay in cash when your order arrives."
+                  : `Unavailable above ${formatINR(codMaxOrderValue)} — please pay online.`
             }
           />
         </div>
@@ -295,8 +375,51 @@ export default function CheckoutForm() {
             </li>
           ))}
         </ul>
+        {/* Coupon */}
+        <div className="mt-4 border-t hairline pt-4">
+          {coupon ? (
+            <div className="flex items-center justify-between text-sm">
+              <span>
+                Coupon <strong>{coupon.code}</strong> applied
+              </span>
+              <button
+                type="button"
+                onClick={() => setCoupon(null)}
+                className="text-xs text-charcoal/50 underline hover:text-charcoal"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                placeholder="Coupon code"
+                aria-label="Coupon code"
+                className="min-w-0 flex-1 border border-charcoal/25 bg-ivory px-3 py-2 text-sm uppercase outline-none focus:border-champagne"
+              />
+              <button
+                type="button"
+                onClick={applyCoupon}
+                disabled={couponBusy || !couponInput.trim()}
+                className="btn btn-outline px-4 py-2 text-[11px]"
+              >
+                {couponBusy ? "…" : "Apply"}
+              </button>
+            </div>
+          )}
+          {couponError && (
+            <p className="mt-2 text-xs text-red-600">{couponError}</p>
+          )}
+        </div>
+
         <dl className="mt-4 space-y-2 border-t hairline pt-4 text-sm">
           <Row label="Subtotal" value={formatINR(subtotal)} />
+          {discount > 0 && (
+            <Row label={`Discount (${coupon!.code})`} value={`−${formatINR(discount)}`} />
+          )}
           <Row
             label="Shipping"
             value={shipping === 0 ? "Free" : formatINR(shipping)}
@@ -314,7 +437,7 @@ export default function CheckoutForm() {
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || (!onlineEnabled && !codAllowed)}
           className="btn btn-primary mt-6 w-full"
         >
           {busy

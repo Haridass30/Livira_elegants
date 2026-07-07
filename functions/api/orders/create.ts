@@ -18,6 +18,13 @@ import { createRazorpayOrder } from "../../_lib/razorpay";
 import { insertOrder } from "../../_lib/db";
 import { notifyOwner } from "../../_lib/email";
 import {
+  getSettings,
+  getDisabledSlugs,
+  getCoupon,
+  evaluateCoupon,
+  incrementCouponUse,
+} from "../../_lib/settings";
+import {
   validateAndPriceCart,
   validateCustomer,
   isCodAllowed,
@@ -34,8 +41,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return badRequest("Invalid request body.");
   }
 
-  const cfg = pricingFromEnv(env);
+  // Admin-editable store settings (D1) override the env defaults live.
+  const settings = await getSettings(env);
+  const cfg = {
+    ...pricingFromEnv(env),
+    codMaxOrderValue: settings.codMaxOrderValue,
+    freeShippingThreshold: settings.freeShippingThreshold,
+    flatShippingFee: settings.flatShippingFee,
+  };
   const method: CheckoutMethod = body?.method === "cod" ? "cod" : "online";
+
+  // 0) Payment-method availability (toggled from /admin/settings).
+  if (method === "cod" && !settings.codEnabled) {
+    return badRequest("Cash on Delivery is currently unavailable. Please pay online.");
+  }
+  if (method === "online" && !settings.onlineEnabled) {
+    return badRequest("Online payment is currently unavailable. Please choose Cash on Delivery.");
+  }
 
   // 1) Customer details.
   const customerErrors = validateCustomer(body?.customer);
@@ -51,8 +73,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!cart.ok) return badRequest(cart.errors);
   const { lines, totals } = cart;
 
+  // 3b) Products disabled from the admin cannot be ordered.
+  const disabled = await getDisabledSlugs(env);
+  const blockedLines = lines.filter((l) => disabled.has(l.slug));
+  if (blockedLines.length) {
+    return badRequest(
+      blockedLines.map((l) => `"${l.name}" is currently unavailable.`),
+    );
+  }
+
+  // 3c) Coupon (optional) — evaluated server-side against the recomputed subtotal.
+  let discount = 0;
+  let couponCode: string | undefined;
+  const requestedCode =
+    typeof body?.couponCode === "string" ? body.couponCode.trim() : "";
+  if (requestedCode) {
+    const coupon = await getCoupon(env, requestedCode);
+    const check = evaluateCoupon(coupon, totals.subtotal);
+    if (!check.ok) return badRequest(check.reason ?? "Invalid coupon.");
+    discount = check.discount;
+    couponCode = coupon!.code;
+  }
+
+  const grandTotal = Math.max(0, totals.subtotal - discount) + totals.shipping;
+
   // 4) COD guard rail.
-  if (method === "cod" && !isCodAllowed(totals.total, cfg)) {
+  if (method === "cod" && !isCodAllowed(grandTotal, cfg)) {
     return badRequest(
       `Cash on Delivery isn't available above ₹${cfg.codMaxOrderValue.toLocaleString("en-IN")}. Please pay online.`,
     );
@@ -64,16 +110,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     method,
     subtotal: totals.subtotal,
     shipping: totals.shipping,
-    total: totals.total,
+    total: grandTotal,
     currency: totals.currency,
     lines,
     customer: body.customer,
+    couponCode,
+    discount,
   };
 
   try {
     // ---------------- COD ----------------
     if (method === "cod") {
       await insertOrder(env, { ...baseOrder, status: "cod_pending" });
+      if (couponCode) await incrementCouponUse(env, couponCode);
       // Fire owner notification (never blocks the response on failure).
       await notifyOwner(env, { ...baseOrder, status: "cod_pending" });
       return json({ ok: true, order_ref: orderRef, method: "cod" });
@@ -82,7 +131,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // ---------------- Online (Razorpay) ----------------
     const rzpOrder = await createRazorpayOrder(
       env,
-      toPaise(totals.total),
+      toPaise(grandTotal),
       totals.currency,
       orderRef,
       { order_ref: orderRef },
@@ -93,6 +142,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       status: "pending",
       razorpayOrderId: rzpOrder.id,
     });
+    if (couponCode) await incrementCouponUse(env, couponCode);
 
     // Owner is notified only once payment is verified (see verify.ts).
     return json({

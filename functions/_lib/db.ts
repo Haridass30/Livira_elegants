@@ -21,6 +21,8 @@ export interface NewOrder {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   notes?: string;
+  couponCode?: string;
+  discount?: number;
 }
 
 export interface OrderRow {
@@ -40,6 +42,8 @@ export interface OrderRow {
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;
   notes: string | null;
+  coupon_code: string | null;
+  amount_discount: number;
   created_at: string;
 }
 
@@ -49,8 +53,9 @@ export async function insertOrder(env: Env, o: NewOrder): Promise<void> {
        order_ref, status, method,
        amount_subtotal, amount_shipping, amount_total, currency,
        items, customer_name, phone, email, address, pincode,
-       razorpay_order_id, razorpay_payment_id, notes
-     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       razorpay_order_id, razorpay_payment_id, notes,
+       coupon_code, amount_discount
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   )
     .bind(
       o.orderRef,
@@ -69,6 +74,8 @@ export async function insertOrder(env: Env, o: NewOrder): Promise<void> {
       o.razorpayOrderId ?? null,
       o.razorpayPaymentId ?? null,
       o.notes ?? null,
+      o.couponCode ?? null,
+      o.discount ?? 0,
     )
     .run();
 }
@@ -185,6 +192,38 @@ const ALLOWED_STATUSES = new Set([
   "cancelled",
   "failed",
 ]);
+
+export interface CustomerRow {
+  customer_name: string;
+  phone: string;
+  email: string;
+  address: string;
+  pincode: string;
+  order_count: number;
+  total_spent: number;
+  last_order_at: string;
+}
+
+/** Customers derived from orders, grouped by phone (excludes failed/cancelled). */
+export async function listCustomers(env: Env): Promise<CustomerRow[]> {
+  const res = await env.DB.prepare(
+    `SELECT
+       MAX(customer_name)  AS customer_name,
+       phone,
+       MAX(email)          AS email,
+       MAX(address)        AS address,
+       MAX(pincode)        AS pincode,
+       COUNT(*)            AS order_count,
+       COALESCE(SUM(amount_total),0) AS total_spent,
+       MAX(created_at)     AS last_order_at
+     FROM orders
+     WHERE status NOT IN ('failed','cancelled')
+     GROUP BY phone
+     ORDER BY last_order_at DESC
+     LIMIT 500`,
+  ).all<CustomerRow>();
+  return res.results ?? [];
+}
 
 /** Update an order's status from the admin dashboard. Returns rows changed. */
 export async function updateOrderStatus(

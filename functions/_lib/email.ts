@@ -19,6 +19,8 @@ export interface OrderSummary {
   total: number;
   currency: string;
   lines: { name: string; qty: number; lineTotal: number }[];
+  couponCode?: string;
+  discount?: number;
   customer: {
     name: string;
     phone: string;
@@ -55,6 +57,7 @@ export async function notifyOwner(env: Env, order: OrderSummary): Promise<void> 
       <table style="width:100%;border-collapse:collapse;margin:16px 0">
         ${itemsHtml}
         <tr><td style="padding-top:8px">Subtotal</td><td align="right" style="padding-top:8px">${fmt(order.subtotal)}</td></tr>
+        ${order.discount ? `<tr><td>Discount${order.couponCode ? ` (${order.couponCode})` : ""}</td><td align="right">−${fmt(order.discount)}</td></tr>` : ""}
         <tr><td>Shipping</td><td align="right">${order.shipping === 0 ? "Free" : fmt(order.shipping)}</td></tr>
         <tr><td style="font-weight:bold;padding-top:8px">Total</td><td align="right" style="font-weight:bold;padding-top:8px">${fmt(order.total)}</td></tr>
       </table>
