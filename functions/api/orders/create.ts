@@ -19,11 +19,12 @@ import { insertOrder } from "../../_lib/db";
 import { notifyOwner } from "../../_lib/email";
 import {
   getSettings,
-  getDisabledSlugs,
   getCoupon,
   evaluateCoupon,
   incrementCouponUse,
+  getPaymentKeys,
 } from "../../_lib/settings";
+import { loadCatalog, decrementStock } from "../../_lib/catalogDb";
 import {
   validateAndPriceCart,
   validateCustomer,
@@ -68,19 +69,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return badRequest("Sorry, we don't deliver to that pincode yet.");
   }
 
-  // 3) Cart — recompute everything from the catalogue.
-  const cart = validateAndPriceCart(body?.items, cfg);
+  // 3) Cart — recompute everything from the D1 catalogue (price, stock, qty).
+  const catalog = await loadCatalog(env);
+  const cart = validateAndPriceCart(body?.items, catalog, cfg);
   if (!cart.ok) return badRequest(cart.errors);
   const { lines, totals } = cart;
-
-  // 3b) Products disabled from the admin cannot be ordered.
-  const disabled = await getDisabledSlugs(env);
-  const blockedLines = lines.filter((l) => disabled.has(l.slug));
-  if (blockedLines.length) {
-    return badRequest(
-      blockedLines.map((l) => `"${l.name}" is currently unavailable.`),
-    );
-  }
 
   // 3c) Coupon (optional) — evaluated server-side against the recomputed subtotal.
   let discount = 0;
@@ -122,6 +115,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // ---------------- COD ----------------
     if (method === "cod") {
       await insertOrder(env, { ...baseOrder, status: "cod_pending" });
+      await decrementStock(env, lines);
       if (couponCode) await incrementCouponUse(env, couponCode);
       // Fire owner notification (never blocks the response on failure).
       await notifyOwner(env, { ...baseOrder, status: "cod_pending" });
@@ -129,8 +123,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     // ---------------- Online (Razorpay) ----------------
+    const keys = await getPaymentKeys(env);
     const rzpOrder = await createRazorpayOrder(
-      env,
+      keys,
       toPaise(grandTotal),
       totals.currency,
       orderRef,
@@ -142,6 +137,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       status: "pending",
       razorpayOrderId: rzpOrder.id,
     });
+    await decrementStock(env, lines);
     if (couponCode) await incrementCouponUse(env, couponCode);
 
     // Owner is notified only once payment is verified (see verify.ts).
@@ -150,7 +146,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       order_ref: orderRef,
       method: "online",
       razorpay_order_id: rzpOrder.id,
-      razorpay_key_id: env.RAZORPAY_KEY_ID,
+      razorpay_key_id: keys.keyId,
       amount: rzpOrder.amount, // paise
       currency: rzpOrder.currency,
     });

@@ -51,11 +51,5 @@ export const nav = [
   { label: "Contact", href: "/contact" },
 ] as const;
 
-export type Category = "Rings" | "Necklaces" | "Earrings" | "Bangles";
-
-export const categories: Category[] = [
-  "Rings",
-  "Necklaces",
-  "Earrings",
-  "Bangles",
-];
+// Collections/categories are managed in the admin (/admin/collections) and
+// flow into the site from the product catalogue at build time.

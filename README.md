@@ -111,12 +111,36 @@ npm run typecheck     # checks src and functions (separate tsconfigs)
 
 ---
 
-## 2. Add or edit a product
+## 2. Add or edit a product (owner — no code needed)
 
-1. Drop the photos into `src/assets/products/` (portrait 4:5 looks best). Use
-   real product shots; the bundled images are placeholders.
-2. Create a JSON file in `src/content/products/`. **The filename is the slug**
-   (`eternal-solitaire-ring.json` → `/product/eternal-solitaire-ring`).
+Everything is managed in the **admin dashboard** at `/admin`:
+
+- **Products** → *Add product*: name, price, was-price, collection, material,
+  description, stock quantity, featured flag — then upload photos straight from
+  the browser (they're auto-resized). Edit or delete any product the same way.
+- **Collections** → create/rename/delete collections (Rings, Necklaces, …).
+- **Coupons** → discount codes with min-order, expiry and usage limits.
+- **Settings** → COD on/off, online payment on/off, COD cap, shipping fees,
+  **Razorpay keys**, and the Deploy Hook URL.
+- **Publish site** button (Products page) → rebuilds the static shop pages
+  (~2 min). Checkout, stock and pricing use the live database instantly even
+  before publishing; only the visible pages wait for the rebuild.
+
+Product data lives in **D1** (`products`, `product_images`, `collections`);
+the static site pulls it from `/api/products` at build time via the content
+loader in `src/content.config.ts`. Stock decrements automatically on each
+order.
+
+> One-time setup for the Publish button: Cloudflare dashboard → your Pages
+> project → Settings → Build → **Deploy hooks** → create one → paste its URL
+> into `/admin` → Settings → Deploy Hook URL.
+
+### Developer notes (legacy seed data)
+
+The JSON files in `src/content/products/` and images in `src/assets/products/`
+are the original sample data, kept only as a reference/backup — the live
+catalogue is in D1 and they are no longer read by the build. The old format,
+for the record:
 
 ```jsonc
 {
@@ -138,12 +162,6 @@ npm run typecheck     # checks src and functions (separate tsconfigs)
   "tags": ["diamond", "solitaire"]// optional
 }
 ```
-
-3. **Register it for the server‑side price check**: add one import + one map
-   entry in [`src/lib/catalog.ts`](src/lib/catalog.ts). (This explicit list is
-   what lets the Functions price the cart without trusting the browser.)
-
-The schema is enforced by zod at build time — a bad/missing field fails the build.
 
 ---
 

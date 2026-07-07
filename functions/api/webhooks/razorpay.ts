@@ -16,6 +16,7 @@ import { json, serverError } from "../../_lib/http";
 import { verifyWebhookSignature } from "../../_lib/razorpay";
 import { findByRazorpayOrderId, markOrderPaid } from "../../_lib/db";
 import { notifyOwner } from "../../_lib/email";
+import { getPaymentKeys } from "../../_lib/settings";
 import type { PricedLine } from "../../../src/lib/types";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -23,7 +24,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const raw = await request.text();
   const signature = request.headers.get("x-razorpay-signature") || "";
 
-  const valid = await verifyWebhookSignature(env, raw, signature);
+  const keys = await getPaymentKeys(env);
+  const valid = await verifyWebhookSignature(keys, raw, signature);
   if (!valid) return json({ ok: false, error: "Invalid signature." }, 401);
 
   let event: any;

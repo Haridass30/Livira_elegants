@@ -10,6 +10,7 @@ import type { Env } from "../../_lib/env";
 import { pricingFromEnv } from "../../_lib/env";
 import { json, badRequest } from "../../_lib/http";
 import { getCoupon, evaluateCoupon } from "../../_lib/settings";
+import { loadCatalog } from "../../_lib/catalogDb";
 import { validateAndPriceCart } from "../../../src/lib/pricing";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -23,7 +24,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const code = typeof body?.code === "string" ? body.code.trim() : "";
   if (!code) return badRequest("Enter a coupon code.");
 
-  const cart = validateAndPriceCart(body?.items, pricingFromEnv(env));
+  const catalog = await loadCatalog(env);
+  const cart = validateAndPriceCart(body?.items, catalog, pricingFromEnv(env));
   if (!cart.ok) return badRequest(cart.errors);
 
   const coupon = await getCoupon(env, code);

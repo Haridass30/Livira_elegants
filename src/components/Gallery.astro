@@ -1,9 +1,13 @@
 ---
 import { Image } from "astro:assets";
-import type { ImageMetadata } from "astro";
 
+interface RemoteImage {
+  url: string;
+  width: number;
+  height: number;
+}
 interface Props {
-  images: ImageMetadata[];
+  images: RemoteImage[];
   name: string;
 }
 const { images, name } = Astro.props;
@@ -19,7 +23,9 @@ const { images, name } = Astro.props;
       images.map((img, i) => (
         <div class="w-[85%] shrink-0 snap-center first:ml-0">
           <Image
-            src={img}
+            src={img.url}
+            width={img.width}
+            height={img.height}
             alt={`${name} — view ${i + 1}`}
             widths={[420, 640, 900]}
             sizes="85vw"
@@ -46,7 +52,9 @@ const { images, name } = Astro.props;
             class="overflow-hidden rounded-[2px] border transition-colors aria-[selected=true]:border-champagne border-charcoal/15"
           >
             <Image
-              src={img}
+              src={img.url}
+              width={img.width}
+              height={img.height}
               alt=""
               widths={[84, 168]}
               sizes="84px"
@@ -62,7 +70,9 @@ const { images, name } = Astro.props;
         images.map((img, i) => (
           <div data-main={i} class={i === 0 ? "" : "hidden"}>
             <Image
-              src={img}
+              src={img.url}
+              width={img.width}
+              height={img.height}
               alt={`${name} — view ${i + 1}`}
               widths={[640, 900, 1200]}
               sizes="(min-width:1024px) 45vw, 60vw"

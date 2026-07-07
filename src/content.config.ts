@@ -1,37 +1,75 @@
 import { defineCollection, z } from "astro:content";
-import { glob } from "astro/loaders";
 
 /**
- * Product catalogue — local JSON, zod-validated, no CMS.
+ * Product catalogue — loaded at BUILD TIME from the live store API
+ * (/api/products, backed by D1). The owner manages products in /admin; the
+ * "Publish site" button triggers a rebuild so these static pages refresh.
  *
- * These JSON files are the single source of truth for product display.
- * Pricing/stock used by the order Functions is mirrored in src/lib/catalog.ts
- * (which imports the very same JSON), so the server never trusts the client.
- *
- * The collection entry `id` (the filename without extension) is the slug.
+ * CATALOG_API can override the source (e.g. for a staging store). If the API
+ * is unreachable (very first build, offline dev), the build continues with an
+ * empty catalogue rather than failing.
  */
+const CATALOG_API =
+  import.meta.env.CATALOG_API ??
+  process.env.CATALOG_API ??
+  "https://livira-store.pages.dev";
+
 const products = defineCollection({
-  loader: glob({ pattern: "**/*.json", base: "./src/content/products" }),
-  schema: ({ image }) =>
-    z.object({
-      name: z.string(),
-      /** Price in whole rupees (INR). */
-      price: z.number().int().positive(),
-      /** Optional struck-through "was" price, in whole rupees. */
-      compareAtPrice: z.number().int().positive().optional(),
-      category: z.enum(["Rings", "Necklaces", "Earrings", "Bangles"]),
-      material: z.string(),
-      weightGrams: z.number().positive().optional(),
-      dimensions: z.string().optional(),
-      /** Short markdown-ish description; paragraphs split on blank lines. */
-      description: z.string(),
-      /** First image is the primary/hero shot. Paths relative to this file. */
-      images: z.array(image()).min(1),
-      inStock: z.boolean().default(true),
-      featured: z.boolean().default(false),
-      sku: z.string().optional(),
-      tags: z.array(z.string()).default([]),
-    }),
+  loader: async () => {
+    try {
+      const res = await fetch(`${CATALOG_API}/api/products`, {
+        headers: { accept: "application/json" },
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const items = (await res.json()) as Array<{
+        slug: string;
+        images: { id: number; width: number; height: number }[];
+        [k: string]: unknown;
+      }>;
+      console.log(`[products] loaded ${items.length} products from ${CATALOG_API}`);
+      return items.map(({ slug, images, ...rest }) => ({
+        id: slug,
+        slug,
+        ...rest,
+        images: images.map((i) => ({
+          url: `${CATALOG_API}/api/images/${i.id}`,
+          width: i.width,
+          height: i.height,
+        })),
+      }));
+    } catch (err) {
+      console.warn(
+        `[products] WARNING: could not load catalogue from ${CATALOG_API} (${err}). Building with an empty catalogue.`,
+      );
+      return [];
+    }
+  },
+  schema: z.object({
+    slug: z.string(),
+    name: z.string(),
+    /** Price in whole rupees (INR). */
+    price: z.number().int().positive(),
+    compareAtPrice: z.number().int().positive().nullable().optional(),
+    category: z.string(),
+    material: z.string(),
+    weightGrams: z.number().positive().nullable().optional(),
+    dimensions: z.string().nullable().optional(),
+    /** Plain text; paragraphs split on blank lines. */
+    description: z.string(),
+    /** First image is the primary/hero shot. */
+    images: z.array(
+      z.object({
+        url: z.string().url(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+      }),
+    ),
+    inStock: z.boolean().default(true),
+    stockQty: z.number().int().nullable().optional(),
+    featured: z.boolean().default(false),
+    sku: z.string().nullable().optional(),
+    tags: z.array(z.string()).default([]),
+  }),
 });
 
 export const collections = { products };

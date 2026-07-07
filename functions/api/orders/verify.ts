@@ -11,6 +11,7 @@ import { json, badRequest, serverError } from "../../_lib/http";
 import { verifyPaymentSignature } from "../../_lib/razorpay";
 import { findByRazorpayOrderId, markOrderPaid, markOrderFailed } from "../../_lib/db";
 import { notifyOwner } from "../../_lib/email";
+import { getPaymentKeys } from "../../_lib/settings";
 import type { VerifyOrderRequest, PricedLine } from "../../../src/lib/types";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -27,8 +28,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   try {
+    const keys = await getPaymentKeys(env);
     const valid = await verifyPaymentSignature(
-      env,
+      keys,
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,

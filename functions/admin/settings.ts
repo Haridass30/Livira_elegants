@@ -6,11 +6,21 @@
 /// <reference types="@cloudflare/workers-types" />
 import type { Env } from "../_lib/env";
 import { adminPage, htmlResponse, esc } from "../_lib/adminHtml";
-import { getSettings, saveSettings } from "../_lib/settings";
+import {
+  getSettings,
+  saveSettings,
+  getPaymentKeys,
+  setRawSetting,
+  getDeployHookUrl,
+} from "../_lib/settings";
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const saved = new URL(request.url).searchParams.get("saved");
-  const s = await getSettings(env);
+  const [s, keys, hookUrl] = await Promise.all([
+    getSettings(env),
+    getPaymentKeys(env),
+    getDeployHookUrl(env),
+  ]);
 
   const check = (on: boolean) => (on ? " checked" : "");
 
@@ -42,12 +52,32 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
           <input name="free_shipping_threshold" type="number" min="0" value="${esc(s.freeShippingThreshold)}"/></div>
       </div>
 
+      <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Razorpay (online payment)</h2>
+      <p class="muted" style="font-size:13px;margin:0 0 10px">
+        From your Razorpay dashboard → Settings → API Keys. Use <strong>test keys</strong>
+        (rzp_test_…) until you're ready to go live.
+      </p>
+      <div class="field"><label>Key ID</label>
+        <input name="razorpay_key_id" value="${esc(keys.keyId)}" placeholder="rzp_test_…"/></div>
+      <div class="field"><label>Key Secret ${keys.keySecret ? `<span style="color:#2f6b3a">(saved ✓ — leave blank to keep)</span>` : `<span style="color:#8a2f2f">(not set)</span>`}</label>
+        <input name="razorpay_key_secret" type="password" value="" placeholder="${keys.keySecret ? "••••••••••••" : "paste the key secret"}" autocomplete="new-password"/></div>
+      <div class="field"><label>Webhook Secret ${keys.webhookSecret ? `<span style="color:#2f6b3a">(saved ✓ — leave blank to keep)</span>` : `<span class="muted">(optional)</span>`}</label>
+        <input name="razorpay_webhook_secret" type="password" value="" placeholder="${keys.webhookSecret ? "••••••••••••" : "only if you use webhooks"}" autocomplete="new-password"/></div>
+
+      <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Publishing</h2>
+      <p class="muted" style="font-size:13px;margin:0 0 10px">
+        The “Publish site” button (Products page) rebuilds the shop pages using this
+        Deploy Hook. Create it once in Cloudflare: Pages project → Settings → Build →
+        <strong>Deploy hooks</strong> → Add → copy the URL here.
+      </p>
+      <div class="field"><label>Deploy Hook URL</label>
+        <input name="deploy_hook_url" value="${esc(hookUrl)}" placeholder="https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/…"/></div>
+
       <button type="submit" style="margin-top:8px">Save settings</button>
     </form>
 
     <p class="muted" style="margin-top:18px;font-size:13px">
-      Note: if you disable both methods, customers cannot check out at all.
-      Pincode allow/deny lists live in <code>functions/_lib/env.ts</code> (TODO seam).
+      Note: if you disable both payment methods, customers cannot check out at all.
     </p>`;
 
   return htmlResponse(adminPage({ title: "Settings", body }));
@@ -68,6 +98,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     flatShippingFee: num("flat_shipping_fee", current.flatShippingFee),
     freeShippingThreshold: num("free_shipping_threshold", current.freeShippingThreshold),
   });
+
+  // Payment keys + deploy hook. Blank secret fields keep the stored value.
+  const keyId = String(form.get("razorpay_key_id") ?? "").trim();
+  await setRawSetting(env, "razorpay_key_id", keyId);
+  const secret = String(form.get("razorpay_key_secret") ?? "").trim();
+  if (secret) await setRawSetting(env, "razorpay_key_secret", secret);
+  const webhook = String(form.get("razorpay_webhook_secret") ?? "").trim();
+  if (webhook) await setRawSetting(env, "razorpay_webhook_secret", webhook);
+  await setRawSetting(
+    env,
+    "deploy_hook_url",
+    String(form.get("deploy_hook_url") ?? "").trim(),
+  );
 
   return Response.redirect(new URL("/admin/settings?saved=1", request.url).href, 303);
 };

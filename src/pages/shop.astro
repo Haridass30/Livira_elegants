@@ -2,9 +2,10 @@
 import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ProductCard from "../components/ProductCard.astro";
-import { categories } from "../config";
 
 const products = await getCollection("products");
+// Collections present in the catalogue (managed from /admin/collections).
+const categories = [...new Set(products.map((p) => p.data.category))].sort();
 // Stable default order: in-stock & featured first, then by name.
 products.sort((a, b) => {
   const score = (x: typeof a) =>

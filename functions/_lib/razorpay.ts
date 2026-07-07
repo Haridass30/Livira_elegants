@@ -1,6 +1,10 @@
-/** Razorpay Orders API + signature verification (server-side only). */
-import type { Env } from "./env";
+/**
+ * Razorpay Orders API + signature verification (server-side only).
+ * Keys are resolved by the caller via settings.getPaymentKeys() — admin-entered
+ * values in D1 first, Cloudflare env secrets as fallback.
+ */
 import { hmacSha256Hex, safeEqual } from "./crypto";
+import type { PaymentKeys } from "./settings";
 
 const API = "https://api.razorpay.com/v1";
 
@@ -13,13 +17,16 @@ export interface RazorpayOrder {
 
 /** Create a Razorpay order. Amount must be in paise. */
 export async function createRazorpayOrder(
-  env: Env,
+  keys: PaymentKeys,
   amountPaise: number,
   currency: string,
   receipt: string,
   notes: Record<string, string>,
 ): Promise<RazorpayOrder> {
-  const auth = btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`);
+  if (!keys.keyId || !keys.keySecret) {
+    throw new Error("Razorpay keys are not configured (admin → Settings).");
+  }
+  const auth = btoa(`${keys.keyId}:${keys.keySecret}`);
   const res = await fetch(`${API}/orders`, {
     method: "POST",
     headers: {
@@ -47,25 +54,26 @@ export async function createRazorpayOrder(
  * HMAC_SHA256(`${order_id}|${payment_id}`, key_secret).
  */
 export async function verifyPaymentSignature(
-  env: Env,
+  keys: PaymentKeys,
   orderId: string,
   paymentId: string,
   signature: string,
 ): Promise<boolean> {
+  if (!keys.keySecret) return false;
   const expected = await hmacSha256Hex(
     `${orderId}|${paymentId}`,
-    env.RAZORPAY_KEY_SECRET,
+    keys.keySecret,
   );
   return safeEqual(expected, signature);
 }
 
 /** Verify a webhook body against X-Razorpay-Signature using the webhook secret. */
 export async function verifyWebhookSignature(
-  env: Env,
+  keys: PaymentKeys,
   rawBody: string,
   signature: string,
 ): Promise<boolean> {
-  if (!env.RAZORPAY_WEBHOOK_SECRET) return false;
-  const expected = await hmacSha256Hex(rawBody, env.RAZORPAY_WEBHOOK_SECRET);
+  if (!keys.webhookSecret) return false;
+  const expected = await hmacSha256Hex(rawBody, keys.webhookSecret);
   return safeEqual(expected, signature);
 }

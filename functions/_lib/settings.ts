@@ -65,6 +65,56 @@ export async function saveSettings(env: Env, s: StoreSettings): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ *
+ * Payment keys & publish hook — admin-editable, with env fallback.
+ * NOTE: keeping the Razorpay secret in D1 is an owner-requested
+ * convenience; the Cloudflare secret (env) is used when D1 is empty.
+ * ------------------------------------------------------------------ */
+
+export interface PaymentKeys {
+  keyId: string;
+  keySecret: string;
+  webhookSecret: string;
+}
+
+async function getRawSetting(env: Env, key: string): Promise<string> {
+  try {
+    const row = await env.DB.prepare(`SELECT value FROM settings WHERE key = ?`)
+      .bind(key)
+      .first<{ value: string }>();
+    return row?.value ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export async function setRawSetting(env: Env, key: string, value: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  )
+    .bind(key, value)
+    .run();
+}
+
+/** Razorpay credentials: D1 (admin-entered) wins, env secrets as fallback. */
+export async function getPaymentKeys(env: Env): Promise<PaymentKeys> {
+  const [id, secret, webhook] = await Promise.all([
+    getRawSetting(env, "razorpay_key_id"),
+    getRawSetting(env, "razorpay_key_secret"),
+    getRawSetting(env, "razorpay_webhook_secret"),
+  ]);
+  return {
+    keyId: id || env.RAZORPAY_KEY_ID || "",
+    keySecret: secret || env.RAZORPAY_KEY_SECRET || "",
+    webhookSecret: webhook || env.RAZORPAY_WEBHOOK_SECRET || "",
+  };
+}
+
+export async function getDeployHookUrl(env: Env): Promise<string> {
+  return getRawSetting(env, "deploy_hook_url");
+}
+
+/* ------------------------------------------------------------------ *
  * Product availability overrides
  * ------------------------------------------------------------------ */
 

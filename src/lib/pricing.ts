@@ -3,16 +3,28 @@
  *
  * This module is imported by the Cloudflare Pages Functions. It NEVER reads a
  * price, total or stock flag from the client — every figure is recomputed from
- * the canonical catalogue (lib/catalog.ts). The client may send only slugs and
- * quantities; anything else is ignored.
+ * the canonical catalogue (loaded from D1 by the caller). The client may send
+ * only slugs and quantities; anything else is ignored.
  */
-import { getCatalogProduct } from "./catalog";
 import type {
   OrderItemInput,
   PricedLine,
   OrderTotals,
   CustomerInput,
 } from "./types";
+
+/** Canonical product data used for pricing (loaded from D1). */
+export interface CatalogProduct {
+  slug: string;
+  name: string;
+  /** Whole rupees (INR). */
+  price: number;
+  category: string;
+  inStock: boolean;
+  /** null/undefined = stock not tracked. */
+  stockQty?: number | null;
+  sku?: string;
+}
 
 export interface PricingConfig {
   currency: string;
@@ -25,7 +37,7 @@ export interface PricingConfig {
   blockedPincodes?: string[];
 }
 
-/** Sensible defaults; functions override from env. Mirrors src/config.ts. */
+/** Sensible defaults; functions override from env/D1 settings. */
 export const DEFAULT_PRICING: PricingConfig = {
   currency: "INR",
   freeShippingThreshold: 2500,
@@ -47,6 +59,7 @@ const MAX_QTY_PER_LINE = 20;
 /** Validate a raw client cart and recompute every figure from the catalogue. */
 export function validateAndPriceCart(
   rawItems: unknown,
+  catalog: Record<string, CatalogProduct>,
   cfg: PricingConfig = DEFAULT_PRICING,
 ): CartValidation {
   const errors: string[] = [];
@@ -73,7 +86,7 @@ export function validateAndPriceCart(
   }
 
   for (const [slug, rawQty] of qtyBySlug) {
-    const product = getCatalogProduct(slug);
+    const product = catalog[slug];
     if (!product) {
       errors.push(`Product no longer available: "${slug}".`);
       continue;
@@ -82,7 +95,20 @@ export function validateAndPriceCart(
       errors.push(`"${product.name}" is out of stock.`);
       continue;
     }
-    const qty = Math.min(rawQty, MAX_QTY_PER_LINE);
+    let qty = Math.min(rawQty, MAX_QTY_PER_LINE);
+    // Tracked stock: cap at what's actually available.
+    if (product.stockQty !== null && product.stockQty !== undefined) {
+      if (product.stockQty <= 0) {
+        errors.push(`"${product.name}" is out of stock.`);
+        continue;
+      }
+      if (qty > product.stockQty) {
+        errors.push(
+          `Only ${product.stockQty} left of "${product.name}" — please reduce the quantity.`,
+        );
+        continue;
+      }
+    }
     lines.push({
       slug,
       name: product.name,

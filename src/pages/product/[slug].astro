@@ -19,15 +19,21 @@ if (!entry) return Astro.redirect("/404");
 const p = entry.data;
 
 // Small optimised thumbnail URL for the cart line (string, not <Image>).
-const thumb = await getImage({
-  src: p.images[0],
-  width: 144,
-  height: 180,
-  format: "webp",
-});
+// Falls back to the brand OG image when a product has no photos yet.
+const primary = p.images[0];
+const thumb = primary
+  ? await getImage({
+      src: primary.url,
+      width: 144,
+      height: 180,
+      format: "webp",
+    })
+  : { src: "/og-default.jpg" };
 
 // OG image (absolute URL) for this product.
-const og = await getImage({ src: p.images[0], width: 1200, height: 1500 });
+const og = primary
+  ? await getImage({ src: primary.url, width: 1200, height: 1500 })
+  : { src: "/og-default.jpg" };
 
 const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
 const paragraphs = p.description.split(/\n\s*\n/).filter(Boolean);
@@ -51,7 +57,7 @@ const jsonLd = {
   name: p.name,
   image: new URL(og.src, Astro.site).href,
   description: p.description.replace(/\n+/g, " ").slice(0, 300),
-  sku: p.sku,
+  sku: p.sku ?? undefined,
   category: p.category,
   brand: { "@type": "Brand", name: site.name },
   offers: {
