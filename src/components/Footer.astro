@@ -8,7 +8,13 @@ const year = 2026; // build-time constant; bump as needed
 <footer class="mt-28 border-t hairline bg-bone/60">
   <div class="container-page grid gap-12 py-16 md:grid-cols-[1.4fr_1fr_1fr]">
     <div>
-      <p class="font-serif text-2xl tracking-[0.16em]">{site.name.toUpperCase()}</p>
+      <p class="flex flex-col leading-none">
+        <span class="text-metallic font-serif text-2xl tracking-[0.2em]">{site.wordmark}</span>
+        <span class="mt-1.5 text-[0.6rem] font-medium tracking-[0.5em] text-champagne/80">{site.wordmarkSub}</span>
+      </p>
+      <p class="mt-3 text-xs italic tracking-wide text-amethyst-soft/80">
+        ✦ {site.tagline} ✦
+      </p>
       <p class="mt-4 max-w-xs text-sm leading-relaxed text-charcoal/70">
         {site.statement}
       </p>

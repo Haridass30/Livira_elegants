@@ -45,13 +45,18 @@ const isActive = (href: string) =>
       }
     </nav>
 
-    <!-- Wordmark -->
+    <!-- Wordmark lockup: LIVIRA over ELEGANTS, like the logo -->
     <a
       href="/"
-      class="absolute left-1/2 -translate-x-1/2 font-serif text-2xl tracking-[0.18em] md:text-[1.7rem]"
+      class="absolute left-1/2 flex -translate-x-1/2 flex-col items-center leading-none"
       aria-label={`${site.name} — home`}
     >
-      {site.name.toUpperCase()}
+      <span class="text-metallic font-serif text-[1.45rem] tracking-[0.22em] md:text-[1.65rem]">
+        {site.wordmark}
+      </span>
+      <span class="mt-1 text-[0.55rem] font-medium tracking-[0.5em] text-champagne/80 md:text-[0.6rem]">
+        {site.wordmarkSub}
+      </span>
     </a>
 
     <!-- Right: cart -->

@@ -1,18 +1,29 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ *
- * Design tokens — quiet luxury. Warm neutrals + one champagne accent.
- * Tailwind v4 reads these as theme values (e.g. bg-ivory, text-champagne).
+ * Design tokens — Livira Elegants. Dark plum luxury, rose-gold
+ * metallics and a restrained amethyst accent, taken from the brand logo.
+ *
+ * NOTE on naming: the palette was originally light ("ivory" paper etc.).
+ * The semantic ROLES are kept so every component still works:
+ *   ivory    = page background        (now deep plum-black)
+ *   bone     = raised surface         (now dark aubergine)
+ *   sand     = deeper surface/hover   (now muted wine)
+ *   charcoal = primary text           (now warm ivory)
+ *   ink      = strongest text         (now near-white)
+ *   champagne= metallic accent        (now rose gold)
  * ------------------------------------------------------------------ */
 @theme {
-  --color-ivory: #f8f4ed;
-  --color-bone: #efe7da;
-  --color-sand: #e2d5c0;
-  --color-taupe: #b8a890;
-  --color-charcoal: #2b2724;
-  --color-ink: #191512;
-  --color-champagne: #b8893f;
-  --color-champagne-soft: #cdab6e;
+  --color-ivory: #1d1116;
+  --color-bone: #2a1a21;
+  --color-sand: #3b242e;
+  --color-taupe: #86687a;
+  --color-charcoal: #f0e2d8;
+  --color-ink: #fdf6ef;
+  --color-champagne: #cf9a6e;
+  --color-champagne-soft: #e9c6a8;
+  --color-amethyst: #a678c0;
+  --color-amethyst-soft: #c9a2de;
 
   --font-serif: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman",
     serif;
@@ -30,11 +41,16 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--color-ivory);
+    /* Faint plum glow top-left + amethyst breath bottom-right, like the logo's lighting. */
+    background-image:
+      radial-gradient(60rem 40rem at 8% -10%, rgba(207, 154, 110, 0.06), transparent 60%),
+      radial-gradient(50rem 36rem at 105% 110%, rgba(166, 120, 192, 0.07), transparent 60%);
+    background-attachment: fixed;
     color: var(--color-charcoal);
     font-family: var(--font-sans);
     font-feature-settings: "kern", "liga", "calt";
@@ -61,7 +77,7 @@
 
   ::selection {
     background: var(--color-champagne-soft);
-    color: var(--color-ink);
+    color: #1d1116;
   }
 
   img {
@@ -89,13 +105,55 @@
   .eyebrow {
     font-family: var(--font-sans);
     font-size: 0.72rem;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
     color: var(--color-champagne);
     font-weight: 500;
   }
 
-  /* Primary button — solid charcoal, gold focus. */
+  /* Metallic rose-gold text, like the logo lettering. */
+  .text-metallic {
+    background: linear-gradient(
+      120deg,
+      #9a674a 0%,
+      #cf9a6e 30%,
+      #f2d3b4 50%,
+      #cf9a6e 70%,
+      #9a674a 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Diamond divider motif from the logo: —◆— */
+  .divider-gem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    color: var(--color-amethyst);
+  }
+  .divider-gem::before,
+  .divider-gem::after {
+    content: "";
+    height: 1px;
+    width: 4rem;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in srgb, var(--color-champagne) 55%, transparent)
+    );
+  }
+  .divider-gem::after {
+    background: linear-gradient(
+      to left,
+      transparent,
+      color-mix(in srgb, var(--color-champagne) 55%, transparent)
+    );
+  }
+
+  /* Buttons */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -105,34 +163,42 @@
     font-size: 0.8rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    font-weight: 500;
+    font-weight: 600;
     border-radius: var(--radius-card);
     transition:
       background-color 0.3s var(--ease-soft),
       color 0.3s var(--ease-soft),
       border-color 0.3s var(--ease-soft),
+      box-shadow 0.3s var(--ease-soft),
       opacity 0.2s ease;
     cursor: pointer;
   }
+  /* Primary: polished rose-gold bar, dark engraved text. */
   .btn-primary {
-    background: var(--color-charcoal);
-    color: var(--color-ivory);
+    background: linear-gradient(120deg, #a06f4c 0%, #cf9a6e 35%, #eec9a6 52%, #cf9a6e 68%, #a06f4c 100%);
+    background-size: 160% 100%;
+    background-position: 0% 0;
+    color: #241318;
+    border: 0;
   }
   .btn-primary:hover {
-    background: var(--color-ink);
+    background-position: 90% 0;
+    box-shadow: 0 4px 22px rgba(207, 154, 110, 0.25);
   }
   .btn-primary:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+    box-shadow: none;
   }
   .btn-outline {
     background: transparent;
-    color: var(--color-charcoal);
-    border: 1px solid var(--color-charcoal);
+    color: var(--color-champagne);
+    border: 1px solid color-mix(in srgb, var(--color-champagne) 65%, transparent);
   }
   .btn-outline:hover {
-    background: var(--color-charcoal);
-    color: var(--color-ivory);
+    background: var(--color-champagne);
+    color: #241318;
+    border-color: var(--color-champagne);
   }
 
   /* Thin animated underline link. */
@@ -157,7 +223,7 @@
   }
 
   .hairline {
-    border-color: color-mix(in srgb, var(--color-charcoal) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-champagne) 22%, transparent);
   }
 }
 

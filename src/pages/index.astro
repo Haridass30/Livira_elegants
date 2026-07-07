@@ -44,28 +44,22 @@ const jsonLd = {
       class="absolute inset-0 h-full w-full object-cover"
     />
     <div
-      class="absolute inset-0 bg-gradient-to-t from-ink/45 via-ink/10 to-ink/20"
+      class="absolute inset-0 bg-gradient-to-t from-[#150b10]/80 via-[#150b10]/25 to-[#150b10]/45"
     >
     </div>
     <div class="container-page relative pb-16 md:pb-24">
-      <p class="eyebrow reveal reveal-1 text-champagne-soft">Fine jewellery · India</p>
+      <p class="eyebrow reveal reveal-1">Fine jewellery · India</p>
       <h1
-        class="reveal reveal-2 mt-4 max-w-2xl font-serif text-4xl leading-[1.05] text-ivory md:text-6xl"
+        class="reveal reveal-2 mt-4 max-w-2xl font-serif text-4xl leading-[1.08] md:text-6xl"
       >
-        {site.tagline}
+        <span class="text-metallic">{site.tagline}</span>
       </h1>
-      <p class="reveal reveal-3 mt-5 max-w-md text-ivory/85">
+      <p class="reveal reveal-3 mt-5 max-w-md text-charcoal/85">
         Hand-finished pieces in recycled metals and responsibly sourced stones.
       </p>
       <div class="reveal reveal-3 mt-8 flex flex-wrap gap-4">
-        <a href="/shop" class="btn btn-primary bg-ivory text-charcoal hover:bg-bone"
-          >Shop the collection</a
-        >
-        <a
-          href="/about"
-          class="btn btn-outline border-ivory text-ivory hover:bg-ivory hover:text-charcoal"
-          >Our story</a
-        >
+        <a href="/shop" class="btn btn-primary">Shop the collection</a>
+        <a href="/about" class="btn btn-outline">Our story</a>
       </div>
     </div>
   </section>
@@ -78,6 +72,7 @@ const jsonLd = {
     >
       {site.statement}
     </p>
+    <div class="divider-gem mt-10" aria-hidden="true">◆</div>
   </section>
 
   <!-- Featured grid -->

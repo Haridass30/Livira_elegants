@@ -212,7 +212,7 @@ export default function CheckoutForm() {
           contact: customer.phone,
         },
         notes: { order_ref: data.order_ref },
-        theme: { color: "#b8893f" },
+        theme: { color: "#cf9a6e" },
         handler: async (resp: {
           razorpay_order_id: string;
           razorpay_payment_id: string;
@@ -346,7 +346,7 @@ export default function CheckoutForm() {
         {serverError && (
           <p
             role="alert"
-            className="mt-6 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="mt-6 border border-red-800/60 bg-red-950/40 px-4 py-3 text-sm text-red-300"
           >
             {serverError}
           </p>
@@ -411,7 +411,7 @@ export default function CheckoutForm() {
             </div>
           )}
           {couponError && (
-            <p className="mt-2 text-xs text-red-600">{couponError}</p>
+            <p className="mt-2 text-xs text-red-400">{couponError}</p>
           )}
         </div>
 
@@ -505,7 +505,7 @@ function Field({
           aria-invalid={!!error}
         />
       )}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
   );
 }

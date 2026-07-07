@@ -39,7 +39,7 @@ export default function CartDrawer() {
       {/* Scrim */}
       <div
         onClick={closeCart}
-        className={`absolute inset-0 bg-ink/40 transition-opacity duration-500 ${
+        className={`absolute inset-0 bg-black/60 transition-opacity duration-500 ${
           open ? "opacity-100" : "opacity-0"
         }`}
       />

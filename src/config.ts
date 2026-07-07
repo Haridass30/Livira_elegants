@@ -5,10 +5,13 @@
  * details before going live. Everything here is dummy/sample content.
  */
 export const site = {
-  /** Brand name shown in the header, footer, titles and OG tags. */
-  name: "Livira",
-  /** TODO(owner): your tagline. */
-  tagline: "Quiet luxury, kept close.",
+  /** Brand name shown in titles, OG tags and emails. */
+  name: "Livira Elegants",
+  /** Wordmark parts for the two-line header/footer lockup. */
+  wordmark: "LIVIRA",
+  wordmarkSub: "ELEGANTS",
+  /** Brand tagline (from the logo). */
+  tagline: "Elegance in every detail",
   /** Longer brand statement for the homepage hero / about page. */
   statement:
     "Hand-finished fine jewellery, made in small batches. Hallmarked metals, ethically sourced stones, and pieces designed to be worn every day and kept for a lifetime.",
