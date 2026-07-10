@@ -5,9 +5,13 @@ import "@fontsource-variable/inter";
 import "../styles/global.css";
 
 import Seo from "../components/Seo.astro";
+import AnnouncementBar from "../components/AnnouncementBar.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import CartDrawer from "../components/react/CartDrawer.tsx";
+import { site } from "../config";
+
+const hasBar = (site.announcements ?? []).length > 0;
 
 interface Props {
   title: string;
@@ -39,8 +43,15 @@ const { padTop = true, ...seo } = Astro.props;
       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-charcoal focus:text-ivory focus:px-4 focus:py-2"
       >Skip to content</a
     >
+    <AnnouncementBar />
     <Header />
-    <main id="main" class={padTop ? "pt-24 md:pt-28" : ""}>
+    <main
+      id="main"
+      class:list={[
+        padTop && (hasBar ? "pt-[7.25rem] md:pt-[8.5rem]" : "pt-24 md:pt-28"),
+        !padTop && hasBar && "pt-9",
+      ]}
+    >
       <slot />
     </main>
     <Footer />

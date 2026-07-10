@@ -1,0 +1,48 @@
+---
+import { site } from "../config";
+const messages = site.announcements ?? [];
+---
+
+{
+  messages.length > 0 && (
+    <div
+      id="announce-bar"
+      class="fixed inset-x-0 top-0 z-50 h-9 overflow-hidden border-b border-champagne/15 bg-[#150b10] text-champagne-soft"
+    >
+      <div class="announce-track flex h-9 items-center whitespace-nowrap">
+        {[...messages, ...messages].map((m) => (
+          <span class="mx-8 inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.2em]">
+            <span class="text-amethyst">◆</span>
+            {m}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+<style>
+  /* Gentle continuous marquee; pauses on hover, off for reduced motion. */
+  .announce-track {
+    animation: announce-scroll 26s linear infinite;
+    will-change: transform;
+  }
+  #announce-bar:hover .announce-track {
+    animation-play-state: paused;
+  }
+  @keyframes announce-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      /* The message list is duplicated, so -50% loops seamlessly. */
+      transform: translateX(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .announce-track {
+      animation: none;
+      justify-content: center;
+    }
+  }
+</style>

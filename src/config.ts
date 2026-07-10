@@ -22,6 +22,16 @@ export const site = {
   /** TODO(owner): instagram handle (without @), used in footer. Set "" to hide. */
   instagram: "livira.jewellery",
 
+  /**
+   * Top announcement bar. Set to [] to hide it. Multiple messages rotate.
+   * TODO(owner): edit these promo lines.
+   */
+  announcements: [
+    "Free shipping on orders over ₹2,500",
+    "Handcrafted & hallmarked · Made in India",
+    "Elegance in every detail",
+  ] as string[],
+
   currency: "INR" as const,
   locale: "en-IN" as const,
   /** Toggle the "inclusive of GST" note near prices. */
