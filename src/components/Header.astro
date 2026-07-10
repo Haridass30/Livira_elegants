@@ -3,13 +3,14 @@ import { Image } from "astro:assets";
 import { site, nav } from "../config";
 import CartButton from "./react/CartButton.tsx";
 import logo from "../assets/brand/logo-header.png";
+import { getSiteContent } from "../lib/siteContent";
 
 const path = Astro.url.pathname;
 const isActive = (href: string) =>
   href === "/" ? path === "/" : path.startsWith(href);
 
 // The announcement bar (h-9 = 2.25rem) sits above; header stacks below it.
-const hasBar = (site.announcements ?? []).length > 0;
+const hasBar = (await getSiteContent()).announcements.length > 0;
 ---
 
 <header

@@ -1,6 +1,6 @@
 ---
-import { site } from "../config";
-const messages = site.announcements ?? [];
+import { getSiteContent } from "../lib/siteContent";
+const { announcements: messages } = await getSiteContent();
 ---
 
 {

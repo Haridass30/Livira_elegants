@@ -115,6 +115,109 @@ export async function getDeployHookUrl(env: Env): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ *
+ * Homepage content — announcement bar + hero banner (admin-editable).
+ * Applied to the static pages on the next Publish/rebuild.
+ * ------------------------------------------------------------------ */
+
+export interface HeroContent {
+  heading: string;
+  subtext: string;
+  buttonLabel: string;
+  buttonLink: string;
+  secondaryLabel: string;
+  secondaryLink: string;
+  /** product_images.id of the uploaded hero photo, or null. */
+  imageId: number | null;
+}
+
+export interface SiteContent {
+  announcements: string[];
+  hero: HeroContent;
+}
+
+export const CONTENT_DEFAULTS: SiteContent = {
+  announcements: [
+    "Free shipping on orders over ₹2,500",
+    "Handcrafted & hallmarked · Made in India",
+    "Elegance in every detail",
+  ],
+  hero: {
+    heading: "Elegance in every detail",
+    subtext: "Hand-finished pieces in recycled metals and responsibly sourced stones.",
+    buttonLabel: "Shop the collection",
+    buttonLink: "/shop",
+    secondaryLabel: "Our story",
+    secondaryLink: "/about",
+    imageId: null,
+  },
+};
+
+export async function getSiteContent(env: Env): Promise<SiteContent> {
+  const [ann, heading, subtext, bLabel, bLink, sLabel, sLink, imgId] =
+    await Promise.all([
+      getRawSetting(env, "announcements"),
+      getRawSetting(env, "hero_heading"),
+      getRawSetting(env, "hero_subtext"),
+      getRawSetting(env, "hero_button_label"),
+      getRawSetting(env, "hero_button_link"),
+      getRawSetting(env, "hero_secondary_label"),
+      getRawSetting(env, "hero_secondary_link"),
+      getRawSetting(env, "hero_image_id"),
+    ]);
+
+  let announcements = CONTENT_DEFAULTS.announcements;
+  if (ann) {
+    try {
+      const parsed = JSON.parse(ann);
+      if (Array.isArray(parsed)) announcements = parsed.filter((s) => typeof s === "string");
+    } catch {
+      /* keep defaults */
+    }
+  }
+
+  const d = CONTENT_DEFAULTS.hero;
+  return {
+    announcements,
+    hero: {
+      heading: heading || d.heading,
+      subtext: subtext || d.subtext,
+      buttonLabel: bLabel || d.buttonLabel,
+      buttonLink: bLink || d.buttonLink,
+      secondaryLabel: sLabel ?? d.secondaryLabel,
+      secondaryLink: sLink || d.secondaryLink,
+      imageId: imgId ? Number(imgId) || null : null,
+    },
+  };
+}
+
+export async function saveSiteContent(
+  env: Env,
+  c: {
+    announcements: string[];
+    heading: string;
+    subtext: string;
+    buttonLabel: string;
+    buttonLink: string;
+    secondaryLabel: string;
+    secondaryLink: string;
+  },
+): Promise<void> {
+  await Promise.all([
+    setRawSetting(env, "announcements", JSON.stringify(c.announcements)),
+    setRawSetting(env, "hero_heading", c.heading),
+    setRawSetting(env, "hero_subtext", c.subtext),
+    setRawSetting(env, "hero_button_label", c.buttonLabel),
+    setRawSetting(env, "hero_button_link", c.buttonLink),
+    setRawSetting(env, "hero_secondary_label", c.secondaryLabel),
+    setRawSetting(env, "hero_secondary_link", c.secondaryLink),
+  ]);
+}
+
+export async function setHeroImageId(env: Env, id: number): Promise<void> {
+  await setRawSetting(env, "hero_image_id", String(id));
+}
+
+/* ------------------------------------------------------------------ *
  * Product availability overrides
  * ------------------------------------------------------------------ */
 
