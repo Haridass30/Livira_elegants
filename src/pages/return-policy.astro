@@ -1,0 +1,97 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { site } from "../config";
+
+// TODO(owner): the policy was supplied with this email; unify with config if needed.
+const policyEmail = "liviraelegants@gmail.com";
+const waDigits = site.whatsapp.replace(/\D/g, "");
+---
+
+<LegalLayout
+  title="Return & Replacement Policy"
+  description={`Return, replacement and refund policy for ${site.name}.`}
+>
+  <p>
+    At <strong>{site.name}</strong>, customer satisfaction is our priority. Please read
+    our Return &amp; Replacement Policy carefully before placing your order.
+  </p>
+
+  <h2>1. Returns &amp; Replacements</h2>
+  <p>
+    We accept returns or replacements only if the product received is
+    <strong>damaged, defective, or incorrect</strong>.
+  </p>
+  <p>To be eligible:</p>
+  <ul>
+    <li>The issue must be reported within <strong>48 hours of delivery</strong>.</li>
+    <li>
+      The product must be unused, in its original condition, and with all original
+      packaging intact.
+    </li>
+  </ul>
+
+  <h2>2. Non-Returnable Items</h2>
+  <p>
+    Due to hygiene reasons and the delicate nature of fashion jewellery, we do not
+    accept returns or replacements for:
+  </p>
+  <ul>
+    <li>Change of mind</li>
+    <li>Personal dislike or preference</li>
+    <li>Used or worn products</li>
+    <li>Products damaged due to improper handling or misuse</li>
+    <li>Slight variations in colour caused by lighting, photography, or screen settings</li>
+  </ul>
+
+  <h2>3. Return &amp; Replacement Process</h2>
+  <p>To request a return or replacement, please share the following:</p>
+  <ul>
+    <li>Order Number</li>
+    <li>A clear unboxing video (<strong>mandatory</strong>, without cuts or edits)</li>
+    <li>Clear photos showing the issue</li>
+  </ul>
+  <p class="contact-block">
+    <strong>Contact us:</strong><br />
+    Email: <a href={`mailto:${policyEmail}`} class="link-underline text-champagne">{policyEmail}</a><br />
+    WhatsApp: <a href={`https://wa.me/${waDigits}`} class="link-underline text-champagne">{site.whatsapp}</a>
+  </p>
+
+  <h2>4. Replacement</h2>
+  <p>If your request is approved:</p>
+  <ul>
+    <li>We will replace the damaged or incorrect product, subject to stock availability.</li>
+    <li>
+      If the same product is unavailable, we will offer a suitable alternative or
+      process a refund.
+    </li>
+  </ul>
+
+  <h2>5. Refund Policy</h2>
+  <ul>
+    <li>Refunds are applicable only if a replacement cannot be provided.</li>
+    <li>
+      Approved refunds will be processed to the original payment method within
+      <strong>5–7 business days</strong>.
+    </li>
+  </ul>
+
+  <h2>6. Order Cancellation</h2>
+  <p>
+    Orders cannot be cancelled once they have been confirmed, as we begin processing
+    them immediately. Please review your order carefully before completing your
+    purchase.
+  </p>
+
+  <h2>7. Important Note</h2>
+  <ul>
+    <li>
+      An unboxing video (without cuts or edits) is <strong>mandatory</strong> for all
+      damage, defect, or wrong item claims.
+    </li>
+    <li>Claims submitted without proper proof may not be accepted.</li>
+    <li>
+      {site.name} reserves the right to reject any claim that does not meet the above
+      conditions.
+    </li>
+  </ul>
+</LegalLayout>

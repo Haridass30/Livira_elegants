@@ -1,0 +1,56 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { site } from "../config";
+
+// TODO(owner): have this reviewed to match how you actually handle data.
+const policyEmail = "liviraelegants@gmail.com";
+---
+
+<LegalLayout title="Privacy Policy" description={`How ${site.name} collects and uses your information.`}>
+  <p>
+    {site.name} respects your privacy. This policy explains what information we collect
+    and how we use it.
+  </p>
+
+  <h2>1. Information We Collect</h2>
+  <ul>
+    <li>Contact and delivery details you provide at checkout (name, phone, email, address, pincode).</li>
+    <li>Order details and history.</li>
+    <li>
+      We do <strong>not</strong> store card or payment credentials — online payments are
+      handled securely by our payment partner (Razorpay).
+    </li>
+  </ul>
+
+  <h2>2. How We Use Your Information</h2>
+  <ul>
+    <li>To process, deliver and support your orders.</li>
+    <li>To contact you about your order or respond to your queries.</li>
+    <li>To improve our products and service.</li>
+  </ul>
+
+  <h2>3. Sharing</h2>
+  <p>
+    We share information only as needed to fulfil your order — for example with courier
+    and payment partners. We do not sell your personal information to third parties.
+  </p>
+
+  <h2>4. Data Security</h2>
+  <p>
+    Order information is stored securely. Payments are processed over encrypted,
+    PCI-compliant infrastructure by our payment gateway.
+  </p>
+
+  <h2>5. Your Choices</h2>
+  <p>
+    To access, correct or delete your information, or to opt out of non-essential
+    messages, contact us at
+    <a href={`mailto:${policyEmail}`} class="link-underline text-champagne">{policyEmail}</a>.
+  </p>
+
+  <h2>6. Updates</h2>
+  <p>
+    We may update this policy from time to time. The latest version will always be
+    available on this page.
+  </p>
+</LegalLayout>

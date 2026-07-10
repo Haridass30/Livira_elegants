@@ -1,0 +1,62 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { site } from "../config";
+import { formatINR } from "../lib/format";
+
+// TODO(owner): review shipping timelines, charges and courier partners below.
+const policyEmail = "liviraelegants@gmail.com";
+---
+
+<LegalLayout title="Shipping & Delivery Policy" description={`Shipping and delivery information for ${site.name}.`}>
+  <p>
+    We want your {site.name} pieces to reach you safely and on time. Here's how our
+    shipping works.
+  </p>
+
+  <h2>1. Order Processing</h2>
+  <ul>
+    <li>Orders are processed within <strong>1–2 business days</strong> of confirmation.</li>
+    <li>
+      Made-to-order or engraved pieces may take longer; the estimated time is shown on
+      the product page.
+    </li>
+    <li>You'll receive your order reference by email as soon as the order is placed.</li>
+  </ul>
+
+  <h2>2. Delivery Timelines</h2>
+  <ul>
+    <li>Metro cities: approximately <strong>3–5 business days</strong> after dispatch.</li>
+    <li>Other locations: approximately <strong>5–8 business days</strong> after dispatch.</li>
+    <li>Delays may occasionally occur due to courier or regional conditions.</li>
+  </ul>
+
+  <h2>3. Shipping Charges</h2>
+  <ul>
+    <li>
+      Free shipping on all orders above {formatINR(site.freeShippingThreshold)}.
+    </li>
+    <li>
+      A flat shipping fee of {formatINR(site.flatShippingFee)} applies below that value.
+    </li>
+    <li>Charges, if any, are always shown at checkout before you pay.</li>
+  </ul>
+
+  <h2>4. Tracking</h2>
+  <p>
+    Once your order is dispatched, we'll share tracking details over WhatsApp or email
+    so you can follow your parcel to your door.
+  </p>
+
+  <h2>5. Cash on Delivery</h2>
+  <p>
+    COD is available on eligible orders (subject to a maximum order value and your
+    pincode). Where COD isn't available, secure online payment can be used instead.
+  </p>
+
+  <h2>6. Need Help?</h2>
+  <p class="contact-block">
+    For any delivery questions, contact us at
+    <a href={`mailto:${policyEmail}`} class="link-underline text-champagne">{policyEmail}</a>
+    or <a href="/contact" class="link-underline text-champagne">reach us here</a>.
+  </p>
+</LegalLayout>

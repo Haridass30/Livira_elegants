@@ -1,0 +1,79 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import { site } from "../config";
+
+interface Props {
+  title: string;
+  description?: string;
+  updated?: string;
+}
+const { title, description, updated = "July 2026" } = Astro.props;
+---
+
+<BaseLayout title={title} description={description ?? `${title} — ${site.name}.`}>
+  <section class="container-page py-14 md:py-20">
+    <div class="mx-auto max-w-3xl">
+      <p class="eyebrow">Customer care</p>
+      <h1 class="mt-3 font-serif text-4xl md:text-5xl">{title}</h1>
+      <p class="mt-4 text-sm text-charcoal/55">Last updated: {updated}</p>
+      <div class="divider-gem mt-8" aria-hidden="true">◆</div>
+
+      <div class="policy mt-10">
+        <slot />
+      </div>
+
+      <div class="mt-12 border-t hairline pt-8">
+        <p class="text-sm text-charcoal/70">
+          Questions about an order? We're happy to help —
+          <a href="/contact" class="link-underline text-champagne">contact us</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style is:global>
+  .policy {
+    line-height: 1.7;
+    color: color-mix(in srgb, var(--color-charcoal) 88%, transparent);
+  }
+  .policy p {
+    margin: 0 0 1rem;
+  }
+  .policy h2 {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    margin: 2.25rem 0 0.75rem;
+    color: var(--color-ink);
+  }
+  .policy ul {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+  }
+  .policy li {
+    position: relative;
+    padding-left: 1.4rem;
+    margin: 0.5rem 0;
+  }
+  .policy li::before {
+    content: "◆";
+    position: absolute;
+    left: 0;
+    top: 0.05rem;
+    font-size: 0.7rem;
+    color: var(--color-amethyst);
+  }
+  .policy strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+  .policy .contact-block {
+    background: color-mix(in srgb, var(--color-champagne) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-champagne) 22%, transparent);
+    border-radius: 3px;
+    padding: 1rem 1.25rem;
+    margin: 1.25rem 0;
+    line-height: 2;
+  }
+</style>

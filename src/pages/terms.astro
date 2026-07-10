@@ -1,0 +1,64 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { site } from "../config";
+
+// TODO(owner): have these terms reviewed before relying on them.
+const policyEmail = "liviraelegants@gmail.com";
+---
+
+<LegalLayout title="Terms & Conditions" description={`Terms and conditions for shopping with ${site.name}.`}>
+  <p>
+    By placing an order with {site.name}, you agree to the following terms.
+  </p>
+
+  <h2>1. Products</h2>
+  <ul>
+    <li>
+      All pieces are handcrafted; slight variations in colour, finish and measurements
+      are natural and not considered defects.
+    </li>
+    <li>
+      Product images are for reference. Actual appearance may vary slightly with lighting
+      and screen settings.
+    </li>
+    <li>Products are subject to availability.</li>
+  </ul>
+
+  <h2>2. Pricing &amp; Payment</h2>
+  <ul>
+    <li>All prices are in Indian Rupees (₹) and inclusive of applicable taxes.</li>
+    <li>Prices and offers may change without prior notice.</li>
+    <li>The final payable amount is always confirmed on our server at checkout.</li>
+  </ul>
+
+  <h2>3. Orders</h2>
+  <ul>
+    <li>An order is confirmed once payment (or COD placement) is completed successfully.</li>
+    <li>
+      Orders cannot be cancelled once confirmed, as processing begins immediately. Please
+      review your order before completing the purchase.
+    </li>
+    <li>
+      We reserve the right to refuse or cancel any order in case of suspected fraud,
+      pricing errors, or stock issues, with a full refund where applicable.
+    </li>
+  </ul>
+
+  <h2>4. Returns &amp; Refunds</h2>
+  <p>
+    Returns, replacements and refunds are governed by our
+    <a href="/return-policy" class="link-underline text-champagne">Return &amp; Replacement Policy</a>.
+  </p>
+
+  <h2>5. Intellectual Property</h2>
+  <p>
+    All content on this website — including images, text, logo and design — is the
+    property of {site.name} and may not be used without permission.
+  </p>
+
+  <h2>6. Contact</h2>
+  <p class="contact-block">
+    For any questions about these terms, email
+    <a href={`mailto:${policyEmail}`} class="link-underline text-champagne">{policyEmail}</a>.
+  </p>
+</LegalLayout>
