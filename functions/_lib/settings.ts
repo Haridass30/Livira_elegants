@@ -119,21 +119,38 @@ export async function getDeployHookUrl(env: Env): Promise<string> {
  * Applied to the static pages on the next Publish/rebuild.
  * ------------------------------------------------------------------ */
 
-export interface HeroContent {
+/** One banner slide. The homepage shows these as a sliding carousel. */
+export interface BannerSlide {
   heading: string;
   subtext: string;
   buttonLabel: string;
   buttonLink: string;
   secondaryLabel: string;
   secondaryLink: string;
-  /** product_images.id of the uploaded hero photo, or null. */
+  /** product_images.id of the uploaded banner photo, or null. */
   imageId: number | null;
 }
 
+/** Legacy alias — the hero is simply the first slide. */
+export type HeroContent = BannerSlide;
+
 export interface SiteContent {
   announcements: string[];
-  hero: HeroContent;
+  /** First slide, kept for backward compatibility with older callers. */
+  hero: BannerSlide;
+  /** Full banner carousel (always at least one slide). */
+  slides: BannerSlide[];
 }
+
+const DEFAULT_SLIDE: BannerSlide = {
+  heading: "Elegance in every detail",
+  subtext: "Hand-finished pieces in recycled metals and responsibly sourced stones.",
+  buttonLabel: "Shop the collection",
+  buttonLink: "/shop",
+  secondaryLabel: "Our story",
+  secondaryLink: "/about",
+  imageId: null,
+};
 
 export const CONTENT_DEFAULTS: SiteContent = {
   announcements: [
@@ -141,21 +158,32 @@ export const CONTENT_DEFAULTS: SiteContent = {
     "Handcrafted & hallmarked · Made in India",
     "Elegance in every detail",
   ],
-  hero: {
-    heading: "Elegance in every detail",
-    subtext: "Hand-finished pieces in recycled metals and responsibly sourced stones.",
-    buttonLabel: "Shop the collection",
-    buttonLink: "/shop",
-    secondaryLabel: "Our story",
-    secondaryLink: "/about",
-    imageId: null,
-  },
+  hero: DEFAULT_SLIDE,
+  slides: [DEFAULT_SLIDE],
 };
 
+/** Coerce an untrusted parsed object into a well-formed slide. */
+function normalizeSlide(raw: unknown): BannerSlide {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (v: unknown, fallback = "") =>
+    typeof v === "string" ? v.trim() : fallback;
+  const id = Number(r.imageId);
+  return {
+    heading: str(r.heading, DEFAULT_SLIDE.heading) || DEFAULT_SLIDE.heading,
+    subtext: str(r.subtext),
+    buttonLabel: str(r.buttonLabel, DEFAULT_SLIDE.buttonLabel) || DEFAULT_SLIDE.buttonLabel,
+    buttonLink: str(r.buttonLink, "/shop") || "/shop",
+    secondaryLabel: str(r.secondaryLabel),
+    secondaryLink: str(r.secondaryLink, "/about") || "/about",
+    imageId: Number.isInteger(id) && id > 0 ? id : null,
+  };
+}
+
 export async function getSiteContent(env: Env): Promise<SiteContent> {
-  const [ann, heading, subtext, bLabel, bLink, sLabel, sLink, imgId] =
+  const [ann, slidesRaw, heading, subtext, bLabel, bLink, sLabel, sLink, imgId] =
     await Promise.all([
       getRawSetting(env, "announcements"),
+      getRawSetting(env, "hero_slides"),
       getRawSetting(env, "hero_heading"),
       getRawSetting(env, "hero_subtext"),
       getRawSetting(env, "hero_button_label"),
@@ -175,46 +203,62 @@ export async function getSiteContent(env: Env): Promise<SiteContent> {
     }
   }
 
-  const d = CONTENT_DEFAULTS.hero;
-  return {
-    announcements,
-    hero: {
-      heading: heading || d.heading,
-      subtext: subtext || d.subtext,
-      buttonLabel: bLabel || d.buttonLabel,
-      buttonLink: bLink || d.buttonLink,
-      secondaryLabel: sLabel ?? d.secondaryLabel,
-      secondaryLink: sLink || d.secondaryLink,
-      imageId: imgId ? Number(imgId) || null : null,
-    },
-  };
+  // Preferred source: the multi-banner array. Falls back to the legacy single
+  // hero settings (so existing installs keep their banner) then to defaults.
+  let slides: BannerSlide[] = [];
+  if (slidesRaw) {
+    try {
+      const parsed = JSON.parse(slidesRaw);
+      if (Array.isArray(parsed)) slides = parsed.map(normalizeSlide);
+    } catch {
+      /* fall through to legacy */
+    }
+  }
+
+  if (!slides.length) {
+    const d = DEFAULT_SLIDE;
+    slides = [
+      {
+        heading: heading || d.heading,
+        subtext: subtext || d.subtext,
+        buttonLabel: bLabel || d.buttonLabel,
+        buttonLink: bLink || d.buttonLink,
+        secondaryLabel: sLabel ?? d.secondaryLabel,
+        secondaryLink: sLink || d.secondaryLink,
+        imageId: imgId ? Number(imgId) || null : null,
+      },
+    ];
+  }
+
+  return { announcements, hero: slides[0], slides };
 }
 
-export async function saveSiteContent(
-  env: Env,
-  c: {
-    announcements: string[];
-    heading: string;
-    subtext: string;
-    buttonLabel: string;
-    buttonLink: string;
-    secondaryLabel: string;
-    secondaryLink: string;
-  },
-): Promise<void> {
-  await Promise.all([
-    setRawSetting(env, "announcements", JSON.stringify(c.announcements)),
-    setRawSetting(env, "hero_heading", c.heading),
-    setRawSetting(env, "hero_subtext", c.subtext),
-    setRawSetting(env, "hero_button_label", c.buttonLabel),
-    setRawSetting(env, "hero_button_link", c.buttonLink),
-    setRawSetting(env, "hero_secondary_label", c.secondaryLabel),
-    setRawSetting(env, "hero_secondary_link", c.secondaryLink),
-  ]);
+export async function saveAnnouncements(env: Env, announcements: string[]): Promise<void> {
+  await setRawSetting(env, "announcements", JSON.stringify(announcements));
 }
 
-export async function setHeroImageId(env: Env, id: number): Promise<void> {
-  await setRawSetting(env, "hero_image_id", String(id));
+export async function saveBannerSlides(env: Env, slides: BannerSlide[]): Promise<void> {
+  await setRawSetting(env, "hero_slides", JSON.stringify(slides.map(normalizeSlide)));
+}
+
+/** All banner-image ids currently referenced by a slide (for cleanup). */
+export async function getBannerImageIdsInUse(env: Env): Promise<Set<number>> {
+  const raw = await getRawSetting(env, "hero_slides");
+  const ids = new Set<number>();
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const s of parsed) {
+          const id = Number((s ?? {}).imageId);
+          if (Number.isInteger(id) && id > 0) ids.add(id);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return ids;
 }
 
 /* ------------------------------------------------------------------ *

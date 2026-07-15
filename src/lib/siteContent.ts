@@ -25,23 +25,64 @@ export interface ResolvedHero {
   image: { url: string; width: number; height: number } | null;
 }
 
+/** A banner slide is shaped exactly like the hero. */
+export type ResolvedSlide = ResolvedHero;
+
 export interface ResolvedContent {
   announcements: string[];
+  /** First slide, kept for callers that only expect one hero. */
   hero: ResolvedHero;
+  /** Full banner carousel (always at least one slide). */
+  slides: ResolvedSlide[];
 }
+
+const DEFAULT_SLIDE: ResolvedHero = {
+  heading: site.tagline,
+  subtext: "Hand-finished pieces in recycled metals and responsibly sourced stones.",
+  buttonLabel: "Shop the collection",
+  buttonLink: "/shop",
+  secondaryLabel: "Our story",
+  secondaryLink: "/about",
+  image: null,
+};
 
 const DEFAULTS: ResolvedContent = {
   announcements: site.announcements ?? [],
-  hero: {
-    heading: site.tagline,
-    subtext: "Hand-finished pieces in recycled metals and responsibly sourced stones.",
-    buttonLabel: "Shop the collection",
-    buttonLink: "/shop",
-    secondaryLabel: "Our story",
-    secondaryLink: "/about",
-    image: null,
-  },
+  hero: DEFAULT_SLIDE,
+  slides: [DEFAULT_SLIDE],
 };
+
+interface RawSlide {
+  heading?: string;
+  subtext?: string;
+  buttonLabel?: string;
+  buttonLink?: string;
+  secondaryLabel?: string;
+  secondaryLink?: string;
+  imageId?: number | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+}
+
+function resolveSlide(h: RawSlide): ResolvedSlide {
+  const d = DEFAULT_SLIDE;
+  return {
+    heading: h.heading || d.heading,
+    subtext: h.subtext ?? d.subtext,
+    buttonLabel: h.buttonLabel || d.buttonLabel,
+    buttonLink: h.buttonLink || d.buttonLink,
+    secondaryLabel: h.secondaryLabel ?? d.secondaryLabel,
+    secondaryLink: h.secondaryLink || d.secondaryLink,
+    image:
+      h.imageId && h.imageWidth && h.imageHeight
+        ? {
+            url: `${API}/api/images/${h.imageId}`,
+            width: h.imageWidth,
+            height: h.imageHeight,
+          }
+        : null,
+  };
+}
 
 let cached: Promise<ResolvedContent> | null = null;
 
@@ -58,36 +99,26 @@ async function load(): Promise<ResolvedContent> {
     if (!res.ok) throw new Error(`API ${res.status}`);
     const d = (await res.json()) as {
       announcements?: string[];
-      hero?: Partial<ResolvedHero> & {
-        imageId?: number | null;
-        imageWidth?: number | null;
-        imageHeight?: number | null;
-      };
+      hero?: RawSlide;
+      slides?: RawSlide[];
     };
-    const h = d.hero ?? {};
-    const dh = DEFAULTS.hero;
-    console.log(`[content] loaded homepage content from ${API}`);
+
+    const rawSlides =
+      Array.isArray(d.slides) && d.slides.length
+        ? d.slides
+        : d.hero
+          ? [d.hero]
+          : [];
+    const slides = rawSlides.length ? rawSlides.map(resolveSlide) : DEFAULTS.slides;
+
+    console.log(`[content] loaded homepage content from ${API} (${slides.length} banner slide(s))`);
     return {
       announcements:
         Array.isArray(d.announcements) && d.announcements.length
           ? d.announcements
           : DEFAULTS.announcements,
-      hero: {
-        heading: h.heading || dh.heading,
-        subtext: h.subtext || dh.subtext,
-        buttonLabel: h.buttonLabel || dh.buttonLabel,
-        buttonLink: h.buttonLink || dh.buttonLink,
-        secondaryLabel: h.secondaryLabel ?? dh.secondaryLabel,
-        secondaryLink: h.secondaryLink || dh.secondaryLink,
-        image:
-          h.imageId && h.imageWidth && h.imageHeight
-            ? {
-                url: `${API}/api/images/${h.imageId}`,
-                width: h.imageWidth,
-                height: h.imageHeight,
-              }
-            : null,
-      },
+      hero: slides[0],
+      slides,
     };
   } catch (err) {
     console.warn(`[content] using defaults (${(err as Error).message})`);

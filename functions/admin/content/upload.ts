@@ -1,12 +1,13 @@
 /**
- * POST /admin/content/upload — receive the hero banner photo (client-resized,
- * base64 JSON), store it in D1, point the hero at it and drop the previous one.
+ * POST /admin/content/upload — receive a banner photo (client-resized, base64
+ * JSON) and store it in D1. Returns the new image id; the admin page attaches
+ * it to the slide being edited. Old/unused banner images are pruned when the
+ * content form is saved (see functions/admin/content/index.ts).
  */
 /// <reference types="@cloudflare/workers-types" />
 import type { Env } from "../../_lib/env";
 import { json, badRequest } from "../../_lib/http";
-import { addImage, listImages, deleteImage } from "../../_lib/catalogDb";
-import { setHeroImageId } from "../../_lib/settings";
+import { addImage } from "../../_lib/catalogDb";
 
 const HERO_SLUG = "__hero__";
 const MAX_BYTES = 1_400_000;
@@ -37,14 +38,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return badRequest("Image too large — please use a photo under ~1.4 MB.");
   }
 
-  // Remember the old hero images so we can clean them up after switching.
-  const old = await listImages(env, HERO_SLUG);
-
   const id = await addImage(env, HERO_SLUG, mime, width!, height!, bytes.buffer as ArrayBuffer);
-  await setHeroImageId(env, id);
 
-  // Drop previous hero photos (keep only the new one).
-  for (const img of old) if (img.id !== id) await deleteImage(env, img.id);
-
-  return json({ ok: true, id });
+  return json({ ok: true, id, width, height });
 };
