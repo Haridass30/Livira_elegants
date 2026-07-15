@@ -13,13 +13,14 @@ export default function CartButton() {
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
-          d="M6 8h12l-1 12H7L6 8Z"
+          d="M6 2 3 6.5V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.5L18 2H6Z"
           stroke="currentColor"
           strokeWidth="1.4"
           strokeLinejoin="round"
         />
+        <path d="M3 6.5h18" stroke="currentColor" strokeWidth="1.4" />
         <path
-          d="M9 8a3 3 0 0 1 6 0"
+          d="M16 10a4 4 0 0 1-8 0"
           stroke="currentColor"
           strokeWidth="1.4"
           strokeLinecap="round"
