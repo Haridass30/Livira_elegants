@@ -6,7 +6,6 @@ import ProductCard from "../components/ProductCard.astro";
 import { site } from "../config";
 import { getSiteContent } from "../lib/siteContent";
 import heroImg from "../assets/hero.jpg";
-import aboutImg from "../assets/about.jpg";
 
 const { slides } = await getSiteContent();
 const multiple = slides.length > 1;
@@ -151,45 +150,18 @@ const jsonLd = {
     </div>
   </section>
 
-  <!-- Editorial band -->
-  <section class="container-page py-24 md:py-32">
-    <div class="grid items-center gap-10 md:grid-cols-2 md:gap-16">
-      <div class="relative overflow-hidden rounded-[2px] border hairline">
-        <Image
-          src={aboutImg}
-          alt="Handcrafting a Livira piece"
-          widths={[480, 800, 1200]}
-          sizes="(min-width: 768px) 40vw, 100vw"
-          class="aspect-[4/5] h-full w-full object-cover"
-        />
-      </div>
-      <div>
-        <p class="eyebrow">Made by hand</p>
-        <h2 class="mt-3 font-serif text-3xl leading-tight md:text-[2.6rem]">
-          <span class="text-metallic">Craft you can feel</span>
-        </h2>
-        <p class="mt-6 max-w-md text-charcoal/80">
-          Every Livira piece is finished by hand in small batches — hallmarked
-          metals, responsibly sourced stones, and details meant to last a
-          lifetime.
-        </p>
-        <a href="/about" class="btn btn-outline mt-8">Our story</a>
-      </div>
-    </div>
-  </section>
-
   <!-- Categories -->
-  <section class="container-page pb-24 md:pb-32">
+  <section class="container-page py-24 md:py-32">
     <div class="mb-10 text-center">
       <p class="eyebrow">Shop by</p>
       <h2 class="mt-2 font-serif text-3xl md:text-4xl">Collections</h2>
     </div>
-    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div class="cat-grid">
       {
         categories.map((cat) => (
           <a
             href={`/shop?category=${encodeURIComponent(cat)}`}
-            class="group relative flex aspect-square items-center justify-center border hairline bg-bone/50 transition-colors hover:bg-bone"
+            class="group relative flex aspect-square items-center justify-center border hairline bg-bone/50 px-3 text-center transition-colors hover:bg-bone"
           >
             <span class="font-serif text-xl tracking-wide md:text-2xl">{cat}</span>
             <span class="absolute bottom-4 text-[11px] uppercase tracking-[0.16em] text-champagne opacity-0 transition-opacity group-hover:opacity-100">
@@ -198,6 +170,17 @@ const jsonLd = {
           </a>
         ))
       }
+      <a
+        href={`/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}`}
+        class="group relative flex aspect-square items-center justify-center border hairline bg-bone/50 px-3 text-center transition-colors hover:bg-bone"
+      >
+        <span class="font-serif text-lg leading-tight tracking-wide md:text-xl">
+          Anti-Tarnish<br />Jewels
+        </span>
+        <span class="absolute bottom-4 text-[11px] uppercase tracking-[0.16em] text-champagne opacity-0 transition-opacity group-hover:opacity-100">
+          Explore →
+        </span>
+      </a>
     </div>
   </section>
 
@@ -221,6 +204,19 @@ const jsonLd = {
 </BaseLayout>
 
 <style>
+  /* Collections tiles: two-up on mobile, one flexible row on wider screens
+     (so extra tiles like "Anti-Tarnish Jewels" sit beside the others). */
+  .cat-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 768px) {
+    .cat-grid {
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+  }
+
   /* Sliding banner carousel — the track shifts one full width per slide. */
   .hero-track {
     transition: transform 0.7s var(--ease-soft);
