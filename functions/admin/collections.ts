@@ -1,4 +1,10 @@
-/** /admin/collections — manage the two-level category tree (mains + subs). */
+/**
+ * /admin/collections — manage a simple category tree.
+ *
+ * Any collection can sit at the top level (a "main" category) or be nested
+ * under one main (a "sub-category") by choosing its Parent. Products can be
+ * added to any collection. Two levels deep is the max.
+ */
 /// <reference types="@cloudflare/workers-types" />
 import type { Env } from "../_lib/env";
 import { adminPage, htmlResponse, esc } from "../_lib/adminHtml";
@@ -8,160 +14,126 @@ import {
   createCollection,
   renameCollection,
   deleteCollection,
-  setCollectionKind,
-  reassignCategory,
+  setCollectionParent,
   type CollectionRow,
   type CollectionNode,
 } from "../_lib/catalogDb";
 
 const inputStyle =
   "padding:8px 10px;border:1px solid rgba(43,39,36,.25);border-radius:2px";
-const ghostBtn =
-  "background:#fff;color:var(--char);border:1px solid rgba(43,39,36,.25)";
 
-/** Rename + delete controls shared by mains and subs. */
-function renameForm(c: CollectionRow): string {
+function renameForm(c: CollectionRow, indent = false): string {
   return `<form method="post" style="display:flex;gap:8px;align-items:center">
     <input type="hidden" name="action" value="rename"/>
     <input type="hidden" name="old_name" value="${esc(c.name)}"/>
+    ${indent ? '<span style="color:#9a8">↳</span>' : ""}
     <input name="new_name" value="${esc(c.name)}" style="${inputStyle};min-width:180px"/>
     <button type="submit">Rename</button>
   </form>`;
 }
 
-function deleteForm(
-  c: CollectionRow,
-  opts: { isGroup: boolean; blockReason?: string },
-): string {
-  const disabled = opts.blockReason
-    ? ` disabled title="${esc(opts.blockReason)}"`
-    : "";
-  const confirm = opts.isGroup
-    ? `Delete group “${esc(c.name)}”?`
-    : `Delete “${esc(c.name)}”?`;
-  return `<form method="post" onsubmit="return confirm('${confirm}')">
+/** A dropdown that re-parents a collection. `mains` = valid top-level parents. */
+function parentForm(c: CollectionRow, mains: CollectionRow[], canNest: boolean): string {
+  if (!canNest) {
+    // A main that itself has sub-categories can't become a sub (max 2 levels).
+    return `<span class="muted" style="font-size:12px">Top level</span>`;
+  }
+  const options = [
+    `<option value=""${c.parent ? "" : " selected"}>— None (top level) —</option>`,
+    ...mains
+      .filter((m) => m.name !== c.name)
+      .map(
+        (m) =>
+          `<option value="${esc(m.name)}"${c.parent === m.name ? " selected" : ""}>${esc(m.name)}</option>`,
+      ),
+  ].join("");
+  return `<form method="post" style="display:flex;gap:6px;align-items:center">
+    <input type="hidden" name="action" value="set_parent"/>
+    <input type="hidden" name="name" value="${esc(c.name)}"/>
+    <select name="parent" onchange="this.form.submit()" style="${inputStyle}">${options}</select>
+    <noscript><button type="submit">Move</button></noscript>
+  </form>`;
+}
+
+function deleteForm(c: CollectionRow, blockReason?: string): string {
+  const disabled = blockReason ? ` disabled title="${esc(blockReason)}"` : "";
+  return `<form method="post" onsubmit="return confirm('Delete “${esc(c.name)}”?')">
     <input type="hidden" name="action" value="delete"/>
     <input type="hidden" name="name" value="${esc(c.name)}"/>
     <button type="submit" style="background:#8a2f2f"${disabled}>Delete</button>
   </form>`;
 }
 
-/** Convert a Direct main into a Group (optionally rehoming its products into a
- *  first sub-category), or a childless Group back into a Direct. */
-function convertControl(m: CollectionNode): string {
-  if (m.kind === "group") {
-    const blocked = m.children.length > 0;
-    const attr = blocked
-      ? ' disabled title="Delete or move its sub-categories first"'
-      : "";
-    return `<form method="post" onsubmit="return confirm('Convert “${esc(m.name)}” back to a direct product category?')">
-      <input type="hidden" name="action" value="to_direct"/>
-      <input type="hidden" name="name" value="${esc(m.name)}"/>
-      <button type="submit" style="${ghostBtn}"${attr}>Convert to direct</button>
-    </form>`;
-  }
-  const count = m.product_count ?? 0;
-  // A direct main with products must name a sub-category to hold them on convert.
-  const moveInput =
-    count > 0
-      ? `<input name="move_to" required placeholder="Sub-category for its ${count} product${count === 1 ? "" : "s"}" style="${inputStyle};min-width:210px"/>`
-      : "";
-  return `<form method="post" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <input type="hidden" name="action" value="to_group"/>
-    <input type="hidden" name="name" value="${esc(m.name)}"/>
-    ${moveInput}
-    <button type="submit" style="${ghostBtn}">Convert to group ▾</button>
-  </form>`;
-}
-
-function subRow(s: CollectionRow): string {
-  const blockReason =
-    (s.product_count ?? 0) > 0 ? "Move its products first" : undefined;
-  return `<tr>
-    <td style="padding-left:32px">↳ ${renameForm(s)}</td>
-    <td>${s.product_count} product${s.product_count === 1 ? "" : "s"}</td>
-    <td>${deleteForm(s, { isGroup: false, blockReason })}</td>
-  </tr>`;
-}
-
-function mainBlock(m: CollectionNode): string {
-  const isGroup = m.kind === "group";
-  const badge = isGroup
-    ? `<span style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;background:#efe7dd;padding:2px 8px;border-radius:2px">Group</span>`
-    : `<span style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;background:#e4f0e6;color:#2f6b3a;padding:2px 8px;border-radius:2px">Direct</span>`;
-
-  const meta = isGroup
-    ? `${m.children.length} sub-categor${m.children.length === 1 ? "y" : "ies"}`
-    : `${m.product_count} product${m.product_count === 1 ? "" : "s"}`;
-
-  const blockReason = isGroup
-    ? m.children.length > 0
-      ? "Delete its sub-categories first"
-      : undefined
-    : (m.product_count ?? 0) > 0
+function rowFor(
+  c: CollectionRow,
+  opts: { indent: boolean; mains: CollectionRow[]; hasChildren: boolean },
+): string {
+  const count = c.product_count ?? 0;
+  const blockReason = opts.hasChildren
+    ? "Remove its sub-categories first"
+    : count > 0
       ? "Move its products first"
       : undefined;
-
-  const actions = `<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
-    ${convertControl(m)}
-    ${deleteForm(m, { isGroup, blockReason })}
-  </div>`;
-
-  const header = `<tr style="background:#faf7f2">
-    <td><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${badge} ${renameForm(m)}</div></td>
-    <td>${meta}</td>
-    <td>${actions}</td>
+  return `<tr${opts.indent ? ' style="background:#fcfbf9"' : ""}>
+    <td style="${opts.indent ? "padding-left:26px" : ""}">${renameForm(c, opts.indent)}</td>
+    <td>${count} product${count === 1 ? "" : "s"}</td>
+    <td>${parentForm(c, opts.mains, !opts.hasChildren)}</td>
+    <td>${deleteForm(c, blockReason)}</td>
   </tr>`;
-
-  const subs = isGroup ? m.children.map(subRow).join("") : "";
-
-  const addSub = isGroup
-    ? `<tr><td colspan="3" style="padding:6px 12px 14px 32px">
-        <form method="post" style="display:flex;gap:8px;max-width:420px">
-          <input type="hidden" name="action" value="create_sub"/>
-          <input type="hidden" name="parent" value="${esc(m.name)}"/>
-          <input name="name" required placeholder="Add a sub-category to “${esc(m.name)}”" style="${inputStyle};flex:1"/>
-          <button type="submit">Add sub</button>
-        </form>
-      </td></tr>`
-    : "";
-
-  return header + subs + addSub;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const msg = url.searchParams.get("msg");
   const err = url.searchParams.get("err");
-  const tree = buildCollectionTree(await listCollections(env));
+  const all = await listCollections(env);
+  const tree = buildCollectionTree(all);
+  const mains = tree as CollectionRow[]; // top-level rows only
 
   const rows =
     tree.length === 0
-      ? `<tr><td colspan="3" class="muted" style="padding:28px;text-align:center">No collections yet.</td></tr>`
-      : tree.map(mainBlock).join("");
+      ? `<tr><td colspan="4" class="muted" style="padding:28px;text-align:center">No collections yet — add your first one below.</td></tr>`
+      : tree
+          .map((m: CollectionNode) => {
+            const head = rowFor(m, {
+              indent: false,
+              mains,
+              hasChildren: m.children.length > 0,
+            });
+            const kids = m.children
+              .map((s) => rowFor(s, { indent: true, mains, hasChildren: false }))
+              .join("");
+            return head + kids;
+          })
+          .join("");
+
+  // Parent options for the "add" form (top-level collections only).
+  const addParentOptions = [
+    `<option value="">— None (top level) —</option>`,
+    ...mains.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`),
+  ].join("");
 
   const body = `
     <p><a href="/admin/products">← Back to products</a></p>
     <h1>Collections</h1>
-    <p class="muted">Collections group products in the shop. A <strong>Direct</strong> main category holds products itself; a <strong>Group</strong> main category holds sub-categories, and products live under those (e.g. <em>Necklaces</em> → <em>Gold Necklaces</em>, <em>Silver Necklaces</em>). Use <strong>Convert to group</strong> to give an existing category sub-categories — its current products move into a first sub-category you name, then re-file individual products from the product editor. A category can only be deleted when it has no products (and no sub-categories).</p>
+    <p class="muted">Your shop categories, as a simple tree. A collection with no parent is a <strong>main category</strong>; give it a <strong>Parent</strong> to make it a <strong>sub-category</strong> (e.g. parent <em>Necklaces</em> → <em>Gold Necklaces</em>, <em>Silver Necklaces</em>). You can add products to any collection from the product editor. Two levels deep max.</p>
     ${msg ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a">${esc(msg)}</div>` : ""}
     ${err ? `<div class="err">${esc(err)}</div>` : ""}
     <table>
-      <thead><tr><th>Name</th><th>Contains</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Products</th><th>Parent</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
-    <h2 style="font-family:Georgia,serif;font-weight:400;margin-top:32px">Add a main category</h2>
-    <form method="post" style="display:flex;gap:10px;flex-wrap:wrap;max-width:560px;align-items:center">
-      <input type="hidden" name="action" value="create_main"/>
-      <input name="name" required placeholder="e.g. Anklets" style="${inputStyle};flex:1;min-width:200px"/>
-      <select name="kind" style="${inputStyle}">
-        <option value="direct">Direct — holds products</option>
-        <option value="group">Group — holds sub-categories</option>
-      </select>
+    <h2 style="font-family:Georgia,serif;font-weight:400;margin-top:32px">Add a collection</h2>
+    <form method="post" style="display:flex;gap:10px;flex-wrap:wrap;max-width:620px;align-items:center">
+      <input type="hidden" name="action" value="create"/>
+      <input name="name" required placeholder="e.g. Gold Necklaces" style="${inputStyle};flex:1;min-width:200px"/>
+      <label class="muted" style="font-size:13px">Parent
+        <select name="parent" style="${inputStyle};margin-left:6px">${addParentOptions}</select>
+      </label>
       <button type="submit">Add</button>
     </form>
-    <p class="muted" style="margin-top:14px;font-size:13px">After changing collections, press <strong>Publish site</strong> on the Products page so the shop menus update.</p>`;
+    <p class="muted" style="margin-top:14px;font-size:13px">After changing collections, press <strong>Publish site</strong> on the Products page so the shop menus update (takes ~2 minutes).</p>`;
 
   return htmlResponse(adminPage({ title: "Collections", body }));
 };
@@ -174,62 +146,51 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const ok = (m: string) => back("msg=" + encodeURIComponent(m));
   const fail = (m: string) => back("err=" + encodeURIComponent(m));
 
+  // A collection may be nested only under a top-level collection, and only if
+  // it has no children of its own — keeping the tree at two levels.
+  const validateNesting = async (
+    name: string,
+    parent: string,
+  ): Promise<string | null> => {
+    if (!parent) return null; // moving to top level is always fine
+    if (parent === name) return "A collection can’t be its own parent.";
+    const all = await listCollections(env);
+    const parentRow = all.find((c) => c.name === parent);
+    if (!parentRow) return "That parent no longer exists.";
+    if (parentRow.parent)
+      return `“${parent}” is already a sub-category — pick a main category as the parent.`;
+    if (all.some((c) => c.parent === name))
+      return `“${name}” has sub-categories, so it can’t become a sub-category itself. Move or remove those first.`;
+    return null;
+  };
+
   try {
-    if (action === "create_main") {
+    if (action === "create") {
       const name = String(form.get("name") ?? "").trim();
-      const kind = String(form.get("kind") ?? "direct") === "group" ? "group" : "direct";
+      const parent = String(form.get("parent") ?? "").trim() || null;
       if (name.length < 2 || name.length > 40)
         return fail("Name must be 2–40 characters.");
-      await createCollection(env, name, null, kind);
-      return ok(`Main category “${name}” added.`);
-    }
-
-    if (action === "create_sub") {
-      const name = String(form.get("name") ?? "").trim();
-      const parent = String(form.get("parent") ?? "").trim();
-      if (name.length < 2 || name.length > 40)
-        return fail("Name must be 2–40 characters.");
-      const all = await listCollections(env);
-      const parentRow = all.find((c) => c.name === parent);
-      if (!parentRow || parentRow.parent || parentRow.kind !== "group")
-        return fail("Sub-categories can only be added to a Group main category.");
-      await createCollection(env, name, parent, "direct");
-      return ok(`Sub-category “${name}” added to “${parent}”.`);
-    }
-
-    if (action === "to_group") {
-      const name = String(form.get("name") ?? "");
-      const moveTo = String(form.get("move_to") ?? "").trim();
-      const all = await listCollections(env);
-      const row = all.find((c) => c.name === name);
-      if (!row || row.parent) return fail("Not a main category.");
-      if (row.kind === "group") return ok(`“${name}” is already a group.`);
-      const count = row.product_count ?? 0;
-      if (count > 0) {
-        if (moveTo.length < 2 || moveTo.length > 40)
-          return fail(`Enter a sub-category name (2–40 chars) to hold “${name}”’s ${count} products.`);
-        if (all.some((c) => c.name === moveTo))
-          return fail("A collection with that name already exists.");
-        await createCollection(env, moveTo, name, "direct");
-        await reassignCategory(env, name, moveTo);
+      if (parent) {
+        const problem = await validateNesting(name, parent);
+        if (problem) return fail(problem);
       }
-      await setCollectionKind(env, name, "group");
+      await createCollection(env, name, parent);
       return ok(
-        count > 0
-          ? `“${name}” is now a group; its ${count} product${count === 1 ? "" : "s"} moved to “${moveTo}”. Add more sub-categories below.`
-          : `“${name}” is now a group — add sub-categories to it below.`,
+        parent
+          ? `“${name}” added under “${parent}”.`
+          : `Main category “${name}” added.`,
       );
     }
 
-    if (action === "to_direct") {
+    if (action === "set_parent") {
       const name = String(form.get("name") ?? "");
-      const all = await listCollections(env);
-      const row = all.find((c) => c.name === name);
-      if (!row || row.parent) return fail("Not a main category.");
-      if (all.some((c) => c.parent === name))
-        return fail("Delete or move its sub-categories first.");
-      await setCollectionKind(env, name, "direct");
-      return ok(`“${name}” is now a direct category that holds products.`);
+      const parent = String(form.get("parent") ?? "").trim() || null;
+      const problem = await validateNesting(name, parent ?? "");
+      if (problem) return fail(problem);
+      await setCollectionParent(env, name, parent);
+      return ok(
+        parent ? `“${name}” moved under “${parent}”.` : `“${name}” moved to the top level.`,
+      );
     }
 
     if (action === "rename") {
@@ -245,8 +206,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const block = await deleteCollection(env, name);
       if (block === "products")
         return fail("Move its products to another collection first.");
-      if (block === "children")
-        return fail("Delete its sub-categories first.");
+      if (block === "children") return fail("Remove its sub-categories first.");
       return ok("Collection deleted.");
     }
 

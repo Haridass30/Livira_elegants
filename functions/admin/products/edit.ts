@@ -59,16 +59,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const images = product ? await listImages(env, product.slug) : [];
   const isNew = !product;
 
-  // Only leaf categories are assignable: direct mains and sub-categories.
-  // Group mains render as <optgroup> labels wrapping their sub-categories.
-  const opt = (name: string) =>
-    `<option value="${esc(name)}"${product?.category === name ? " selected" : ""}>${esc(name)}</option>`;
+  // Every collection can hold products; sub-categories are shown indented
+  // beneath their main so the hierarchy is clear but all remain selectable.
+  const opt = (name: string, indent: boolean) =>
+    `<option value="${esc(name)}"${product?.category === name ? " selected" : ""}>${indent ? "  ↳ " : ""}${esc(name)}</option>`;
   const catOptions = buildCollectionTree(collections)
-    .map((m) => {
-      if (m.kind !== "group") return opt(m.name);
-      if (m.children.length === 0) return "";
-      return `<optgroup label="${esc(m.name)}">${m.children.map((s) => opt(s.name)).join("")}</optgroup>`;
-    })
+    .map((m) => opt(m.name, false) + m.children.map((s) => opt(s.name, true)).join(""))
     .join("");
 
   const imageCards = images

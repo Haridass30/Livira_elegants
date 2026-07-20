@@ -27,12 +27,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     if (!firstImg.has(i.product_slug)) firstImg.set(i.product_slug, i.id);
   }
 
-  // Only leaf categories hold products (direct mains + sub-categories); group
-  // mains are organisational and never a product's own category.
-  const cats = [
-    "All",
-    ...collections.filter((c) => c.parent || c.kind === "direct").map((c) => c.name),
-  ];
+  // Any collection can hold products, so all are valid filter tabs.
+  const cats = ["All", ...collections.map((c) => c.name)];
   const shown =
     activeCat === "All" ? products : products.filter((p) => p.category === activeCat);
 

@@ -294,15 +294,11 @@ export async function moveImage(env: Env, id: number, dir: "up" | "down"): Promi
  * Collections
  * ------------------------------------------------------------------ */
 
-export type CollectionKind = "direct" | "group";
-
 export interface CollectionRow {
   name: string;
   position: number;
   /** NULL for a top-level "main" category; the main's name for a sub-category. */
   parent: string | null;
-  /** Only meaningful for mains: 'direct' holds products, 'group' holds subs. */
-  kind: CollectionKind;
   product_count?: number;
 }
 
@@ -313,7 +309,7 @@ export interface CollectionNode extends CollectionRow {
 
 export async function listCollections(env: Env): Promise<CollectionRow[]> {
   const res = await env.DB.prepare(
-    `SELECT c.name, c.position, c.parent, c.kind,
+    `SELECT c.name, c.position, c.parent,
             (SELECT COUNT(*) FROM products p WHERE p.category = c.name AND p.active = 1) AS product_count
      FROM collections c ORDER BY c.position, c.name`,
   ).all<CollectionRow>();
@@ -337,25 +333,32 @@ export function buildCollectionTree(rows: CollectionRow[]): CollectionNode[] {
     .map((m) => ({ ...m, children: (childrenOf.get(m.name) ?? []).sort(byPos) }));
 }
 
-/** Leaf collections a product can be assigned to: direct mains + all subs. */
+/** Every collection can hold products, so all are assignable. */
 export async function listAssignableCollections(env: Env): Promise<CollectionRow[]> {
-  const all = await listCollections(env);
-  return all.filter((c) => (c.parent ? true : c.kind === "direct"));
+  return listCollections(env);
 }
 
 export async function createCollection(
   env: Env,
   name: string,
   parent: string | null = null,
-  kind: CollectionKind = "direct",
 ): Promise<void> {
-  // Sub-categories always hold products; only mains carry a meaningful kind.
-  const effectiveKind: CollectionKind = parent ? "direct" : kind;
   await env.DB.prepare(
-    `INSERT INTO collections (name, position, parent, kind)
-     VALUES (?, (SELECT COALESCE(MAX(position),0)+1 FROM collections), ?, ?)`,
+    `INSERT INTO collections (name, position, parent)
+     VALUES (?, (SELECT COALESCE(MAX(position),0)+1 FROM collections), ?)`,
   )
-    .bind(name.trim(), parent, effectiveKind)
+    .bind(name.trim(), parent)
+    .run();
+}
+
+/** Move a collection under a new parent (null = make it a top-level main). */
+export async function setCollectionParent(
+  env: Env,
+  name: string,
+  parent: string | null,
+): Promise<void> {
+  await env.DB.prepare(`UPDATE collections SET parent = ? WHERE name = ?`)
+    .bind(parent, name)
     .run();
 }
 
@@ -402,31 +405,4 @@ export async function deleteCollection(
   if ((kids?.c ?? 0) > 0) return "children";
   await env.DB.prepare(`DELETE FROM collections WHERE name = ?`).bind(name).run();
   return null;
-}
-
-/** Flip a main category between 'direct' (holds products) and 'group' (holds subs). */
-export async function setCollectionKind(
-  env: Env,
-  name: string,
-  kind: CollectionKind,
-): Promise<void> {
-  await env.DB.prepare(
-    `UPDATE collections SET kind = ? WHERE name = ? AND parent IS NULL`,
-  )
-    .bind(kind, name)
-    .run();
-}
-
-/** Re-file every product from one category name to another; returns rows moved. */
-export async function reassignCategory(
-  env: Env,
-  from: string,
-  to: string,
-): Promise<number> {
-  const res = await env.DB.prepare(
-    `UPDATE products SET category = ?, updated_at = datetime('now') WHERE category = ?`,
-  )
-    .bind(to, from)
-    .run();
-  return res.meta.changes ?? 0;
 }

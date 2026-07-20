@@ -14,7 +14,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const payload = cols.map((c) => ({
     name: c.name,
     parent: c.parent,
-    kind: c.kind,
     position: c.position,
     productCount: c.product_count ?? 0,
   }));

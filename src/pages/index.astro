@@ -19,10 +19,11 @@ const productLeaves = new Set(all.map((p) => p.data.category));
 const mainCategories = cats
   .filter((c) => !c.parent)
   .sort((a, b) => a.position - b.position)
-  .filter((m) =>
-    m.kind === "group"
-      ? cats.some((s) => s.parent === m.name && productLeaves.has(s.name))
-      : productLeaves.has(m.name),
+  // A main tile appears if it (or any of its sub-categories) has products.
+  .filter(
+    (m) =>
+      productLeaves.has(m.name) ||
+      cats.some((s) => s.parent === m.name && productLeaves.has(s.name)),
   )
   .map((m) => m.name);
 const categories = mainCategories.length

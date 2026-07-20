@@ -31,15 +31,12 @@ const unknownMains = [...presentMains]
   .sort((a, b) => a.localeCompare(b));
 
 const mains = [...knownMains, ...unknownMains].map((name) => {
-  const c = byName.get(name);
-  const isGroup = c?.kind === "group";
-  const subs = isGroup
-    ? cats
-        .filter((s) => s.parent === name && productLeaves.has(s.name))
-        .sort((a, b) => a.position - b.position)
-        .map((s) => s.name)
-    : [];
-  return { name, isGroup: isGroup && subs.length > 0, subs };
+  // A main shows sub-chips for each child collection that has products.
+  const subs = cats
+    .filter((s) => s.parent === name && productLeaves.has(s.name))
+    .sort((a, b) => a.position - b.position)
+    .map((s) => s.name);
+  return { name, isGroup: subs.length > 0, subs };
 });
 
 // Stable default order: in-stock & featured first, then by name.

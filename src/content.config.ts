@@ -99,8 +99,6 @@ const categories = defineCollection({
     name: z.string(),
     /** NULL for a main category; the main's name for a sub-category. */
     parent: z.string().nullable().default(null),
-    /** 'direct' holds products; 'group' holds sub-categories. */
-    kind: z.enum(["direct", "group"]).default("direct"),
     position: z.number().default(0),
     productCount: z.number().default(0),
   }),
