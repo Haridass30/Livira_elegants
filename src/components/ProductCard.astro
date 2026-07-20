@@ -13,6 +13,11 @@ interface Props {
 const { entry, priority = false, class: className = "" } = Astro.props;
 const p = entry.data;
 const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
+const discount = onSale
+  ? Math.round(((p.compareAtPrice! - p.price) / p.compareAtPrice!) * 100)
+  : 0;
+// A second photo lets the card cross-fade on hover — a boutique touch.
+const hover = p.images[1];
 ---
 
 <a
@@ -20,7 +25,7 @@ const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
   class:list={["group block", className]}
   aria-label={`${p.name}, ${formatINR(p.price)}`}
 >
-  <div class="relative overflow-hidden bg-bone" style="aspect-ratio: 4 / 5;">
+  <div class="card-lux relative overflow-hidden rounded-[3px]" style="aspect-ratio: 4 / 5;">
     {
       p.images[0] && (
         <Image
@@ -32,32 +37,58 @@ const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
           sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
           loading={priority ? "eager" : "lazy"}
           fetchpriority={priority ? "high" : "auto"}
-          class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
+          class:list={[
+            "h-full w-full object-cover transition-all duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05]",
+            hover && "group-hover:opacity-0",
+          ]}
         />
       )
     }
     {
-      onSale && (
-        <span class="absolute left-3 top-3 bg-charcoal px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-ivory">
-          Sale
-        </span>
+      hover && (
+        <Image
+          src={hover.url}
+          width={hover.width}
+          height={hover.height}
+          alt=""
+          aria-hidden="true"
+          widths={[280, 420, 640, 900]}
+          sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
+          loading="lazy"
+          class="absolute inset-0 h-full w-full scale-[1.05] object-cover opacity-0 transition-opacity duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100"
+        />
+      )
+    }
+
+    <!-- Badges -->
+    {
+      onSale && p.inStock && (
+        <span class="pill absolute left-3 top-3">−{discount}%</span>
       )
     }
     {
       !p.inStock && (
-        <span class="absolute left-3 top-3 bg-ivory/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-charcoal">
-          Sold out
-        </span>
+        <span class="pill absolute left-3 top-3 !text-charcoal/80">Sold out</span>
       )
     }
+
+    <!-- Hover affordance -->
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-[#150b10]/75 to-transparent pb-4 pt-10 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+      <span class="text-[11px] uppercase tracking-[0.22em] text-champagne-soft">
+        View piece →
+      </span>
+    </div>
   </div>
-  <div class="pt-4">
-    <p class="text-[11px] uppercase tracking-[0.16em] text-charcoal/45">
+
+  <div class="pt-4 text-center">
+    <p class="text-[10px] uppercase tracking-[0.2em] text-champagne/70">
       {p.category}
     </p>
-    <h3 class="mt-1 font-serif text-lg leading-snug">{p.name}</h3>
-    <p class="mt-1 flex items-baseline gap-2 text-sm">
-      <span>{formatINR(p.price)}</span>
+    <h3 class="mt-1.5 font-serif text-lg leading-snug transition-colors group-hover:text-ink">
+      {p.name}
+    </h3>
+    <p class="mt-1.5 flex items-baseline justify-center gap-2 text-sm">
+      <span class="text-champagne-soft">{formatINR(p.price)}</span>
       {
         onSale && (
           <span class="text-charcoal/40 line-through">

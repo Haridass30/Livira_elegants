@@ -6,10 +6,11 @@ const year = 2026; // build-time constant; bump as needed
 ---
 
 <footer class="mt-28 border-t hairline bg-bone/60">
+  <div class="gold-rule" aria-hidden="true"></div>
   <div class="container-page grid gap-12 py-16 md:grid-cols-[1.5fr_1fr_1.1fr_1fr]">
     <div>
       <p class="flex flex-col leading-none">
-        <span class="text-metallic font-serif text-2xl tracking-[0.2em]">{site.wordmark}</span>
+        <span class="text-metallic is-animated font-serif text-2xl tracking-[0.2em]">{site.wordmark}</span>
         <span class="mt-1.5 text-[0.6rem] font-medium tracking-[0.5em] text-champagne/80">{site.wordmarkSub}</span>
       </p>
       <p class="mt-3 text-xs italic tracking-wide text-amethyst-soft/80">
@@ -104,9 +105,52 @@ const year = 2026; // build-time constant; bump as needed
 
   <div class="border-t hairline">
     <div
-      class="container-page flex flex-col items-center justify-between gap-2 py-6 text-xs text-charcoal/55 md:flex-row"
+      class="container-page flex flex-col items-center justify-between gap-4 py-6 text-xs text-charcoal/55 md:flex-row"
     >
       <p>© {year} {site.name}. Handcrafted in India.</p>
+
+      <div class="flex items-center gap-3">
+        {
+          site.instagram && (
+            <a
+              href={`https://instagram.com/${site.instagram}`}
+              target="_blank"
+              rel="noopener"
+              aria-label="Instagram"
+              class="grid h-9 w-9 place-items-center rounded-full border hairline text-champagne/80 transition-colors hover:border-champagne hover:text-champagne-soft"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="currentColor" stroke-width="1.3" />
+                <circle cx="12" cy="12" r="3.6" stroke="currentColor" stroke-width="1.3" />
+                <circle cx="17" cy="7" r="1" fill="currentColor" />
+              </svg>
+            </a>
+          )
+        }
+        <a
+          href={`https://wa.me/${waDigits}`}
+          target="_blank"
+          rel="noopener"
+          aria-label="WhatsApp"
+          class="grid h-9 w-9 place-items-center rounded-full border hairline text-champagne/80 transition-colors hover:border-champagne hover:text-champagne-soft"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+            <path d="M9 9.2c.2-.6.4-.6.7-.6h.5c.2 0 .4 0 .5.4l.6 1.4c0 .2 0 .3-.1.5l-.4.4c-.1.1-.2.3 0 .5a5 5 0 0 0 2.3 2c.2.1.4.1.5 0l.5-.6c.1-.2.3-.2.5-.1l1.4.7c.2.1.3.2.3.4 0 .6-.3 1.2-.9 1.4-.5.2-1.1.3-2.4-.2a7 7 0 0 1-3.6-3.2c-.5-.9-.6-1.7-.4-2.3Z" fill="currentColor" />
+          </svg>
+        </a>
+        <a
+          href={`mailto:${site.supportEmail}`}
+          aria-label="Email"
+          class="grid h-9 w-9 place-items-center rounded-full border hairline text-champagne/80 transition-colors hover:border-champagne hover:text-champagne-soft"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3.5" y="5.5" width="17" height="13" rx="2" stroke="currentColor" stroke-width="1.3" />
+            <path d="m4.5 7 7.5 5.5L19.5 7" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+          </svg>
+        </a>
+      </div>
+
       <p>{site.showGstNote ? site.gstNote : ""}</p>
     </div>
   </div>

@@ -225,6 +225,103 @@
   .hairline {
     border-color: color-mix(in srgb, var(--color-champagne) 22%, transparent);
   }
+
+  /* ---------------------------------------------------------------- *
+   * Boutique building blocks — framed cards, gold rules, ornaments,
+   * icon medallions and section headers used across the storefront.
+   * ---------------------------------------------------------------- */
+
+  /* A raised surface with a faint gold hairline — the base for tiles/cards. */
+  .surface {
+    background:
+      linear-gradient(155deg, rgba(58, 36, 46, 0.55), rgba(29, 17, 22, 0.35));
+    border: 1px solid color-mix(in srgb, var(--color-champagne) 16%, transparent);
+  }
+
+  /* Product / category card frame: hairline that warms to gold on hover,
+     with a soft lift. Pair with `.group` for hover-driven children. */
+  .card-lux {
+    position: relative;
+    border: 1px solid color-mix(in srgb, var(--color-champagne) 14%, transparent);
+    background: linear-gradient(160deg, rgba(42, 26, 33, 0.4), rgba(29, 17, 22, 0.2));
+    transition:
+      border-color 0.5s var(--ease-soft),
+      box-shadow 0.5s var(--ease-soft),
+      transform 0.5s var(--ease-soft);
+  }
+  .card-lux:hover {
+    border-color: color-mix(in srgb, var(--color-champagne) 55%, transparent);
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--color-champagne) 30%, transparent) inset,
+      0 18px 40px -22px rgba(0, 0, 0, 0.75),
+      0 0 26px -6px rgba(207, 154, 110, 0.18);
+  }
+
+  /* Thin gold rule, optionally with a centred gem — an elegant section break. */
+  .gold-rule {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in srgb, var(--color-champagne) 50%, transparent) 22%,
+      color-mix(in srgb, var(--color-champagne) 50%, transparent) 78%,
+      transparent
+    );
+  }
+
+  /* Little diamond that sits above centred section headings. */
+  .gem-mark {
+    color: var(--color-amethyst);
+    font-size: 0.7rem;
+    letter-spacing: 0.4em;
+  }
+
+  /* Circular line-icon medallion for trust badges & value props. */
+  .icon-medallion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    color: var(--color-champagne-soft);
+    border: 1px solid color-mix(in srgb, var(--color-champagne) 34%, transparent);
+    background: radial-gradient(
+      circle at 50% 30%,
+      rgba(207, 154, 110, 0.14),
+      transparent 70%
+    );
+  }
+
+  /* Small uppercase pill used for tags/badges. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-champagne) 30%, transparent);
+    color: var(--color-champagne-soft);
+    background: rgba(29, 17, 22, 0.6);
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* Continuous soft shimmer for metallic wordmarks (respects reduced motion). */
+@keyframes metallic-sheen {
+  to {
+    background-position: 200% 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .text-metallic.is-animated {
+    background-size: 200% 100%;
+    animation: metallic-sheen 6s linear infinite;
+  }
 }
 
 /* ------------------------------------------------------------------ *

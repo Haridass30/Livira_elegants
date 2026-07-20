@@ -33,6 +33,25 @@ const featured = all.filter((p) => p.data.featured).slice(0, 3);
 const featuredGrid =
   featured.length >= 3 ? featured : [...featured, ...all].slice(0, 3);
 
+// Brand value props for the trust strip (line-icon medallions).
+const values = [
+  {
+    title: "Handcrafted",
+    desc: "Made in small batches by hand in India.",
+    svg: `<path d="M12 3 4 9l8 12 8-12-8-6Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 9h16M9 3l-2 6 5 12M15 3l2 6-5 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>`,
+  },
+  {
+    title: "Hallmarked metals",
+    desc: "Recycled gold & sterling silver, certified.",
+    svg: `<circle cx="12" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12 7.2l1 2 2.2.2-1.6 1.5.5 2.1L12 12l-2 1.1.5-2.1L8.8 9.4 11 9.2l1-2Z" fill="currentColor"/><path d="M9 15.5 8 22l4-2 4 2-1-6.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>`,
+  },
+  {
+    title: "14-day returns",
+    desc: "Easy returns on unworn pieces.",
+    svg: `<path d="M4 12a8 8 0 1 1 2.5 5.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M4 8v4h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  },
+];
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -87,9 +106,11 @@ const jsonLd = {
             <div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/30 to-[#150b10]/50" />
             <div class="container-page relative pb-16 md:pb-24">
               <div class="hero-copy">
-                <p class="eyebrow">Fine jewellery · India</p>
+                <p class="eyebrow flex items-center gap-2">
+                  <span class="gem-mark">◆</span> Fine jewellery · India
+                </p>
                 <h1 class="mt-4 max-w-2xl font-serif text-4xl leading-[1.08] md:text-6xl">
-                  <span class="text-metallic">{slide.heading}</span>
+                  <span class="text-metallic is-animated">{slide.heading}</span>
                 </h1>
                 {slide.subtext && (
                   <p class="mt-5 max-w-md text-charcoal/85">{slide.subtext}</p>
@@ -110,6 +131,9 @@ const jsonLd = {
         ))
       }
     </div>
+
+    <!-- Inset gold frame — a quiet luxury border over the hero. -->
+    <div class="pointer-events-none absolute inset-3 z-[5] border hairline md:inset-6"></div>
 
     {
       multiple && (
@@ -150,7 +174,9 @@ const jsonLd = {
   <section class="container-page">
     <div class="mb-10 flex items-end justify-between">
       <div>
-        <p class="eyebrow">Curated</p>
+        <p class="eyebrow flex items-center gap-2">
+          <span class="gem-mark">◆</span> Curated
+        </p>
         <h2 class="mt-2 font-serif text-3xl md:text-4xl">Pieces we love</h2>
       </div>
       <a href="/shop" class="link-underline hidden text-sm uppercase tracking-[0.14em] md:inline"
@@ -167,19 +193,24 @@ const jsonLd = {
 
   <!-- Categories -->
   <section class="container-page py-24 md:py-32">
-    <div class="mb-10 text-center">
-      <p class="eyebrow">Shop by</p>
-      <h2 class="mt-2 font-serif text-3xl md:text-4xl">Collections</h2>
+    <div class="mb-12 text-center">
+      <p class="eyebrow flex items-center justify-center gap-2">
+        <span class="gem-mark">◆</span> Shop by
+      </p>
+      <h2 class="mt-3 font-serif text-3xl md:text-4xl">Collections</h2>
+      <div class="divider-gem mt-5" aria-hidden="true">◆</div>
     </div>
     <div class="cat-grid">
       {
         categories.map((cat) => (
           <a
             href={`/shop?category=${encodeURIComponent(cat)}`}
-            class="group relative flex aspect-square items-center justify-center border hairline bg-bone/50 px-3 text-center transition-colors hover:bg-bone"
+            class="card-lux group flex aspect-square flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center"
           >
-            <span class="font-serif text-xl tracking-wide md:text-2xl">{cat}</span>
-            <span class="absolute bottom-4 text-[11px] uppercase tracking-[0.16em] text-champagne opacity-0 transition-opacity group-hover:opacity-100">
+            <span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span>
+            <span class="font-serif text-xl leading-tight tracking-wide md:text-2xl">{cat}</span>
+            <span class="gold-rule w-8 transition-all duration-500 group-hover:w-16" />
+            <span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne-soft">
               Explore →
             </span>
           </a>
@@ -187,12 +218,14 @@ const jsonLd = {
       }
       <a
         href={`/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}`}
-        class="group relative flex aspect-square items-center justify-center border hairline bg-bone/50 px-3 text-center transition-colors hover:bg-bone"
+        class="card-lux group flex aspect-square flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center"
       >
+        <span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span>
         <span class="font-serif text-lg leading-tight tracking-wide md:text-xl">
           Anti-Tarnish<br />Jewels
         </span>
-        <span class="absolute bottom-4 text-[11px] uppercase tracking-[0.16em] text-champagne opacity-0 transition-opacity group-hover:opacity-100">
+        <span class="gold-rule w-8 transition-all duration-500 group-hover:w-16" />
+        <span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne-soft">
           Explore →
         </span>
       </a>
@@ -200,17 +233,16 @@ const jsonLd = {
   </section>
 
   <!-- Trust strip -->
-  <section class="border-y hairline bg-bone/50">
-    <div class="container-page grid gap-8 py-14 text-center md:grid-cols-3">
+  <section class="border-y hairline bg-bone/40">
+    <div class="container-page grid gap-10 py-16 text-center md:grid-cols-3">
       {
-        [
-          ["Handcrafted", "Made in small batches by hand in India."],
-          ["Hallmarked metals", "Recycled gold & sterling silver, certified."],
-          ["14-day returns", "Easy returns on unworn pieces."],
-        ].map(([t, d]) => (
-          <div>
-            <h3 class="font-serif text-xl">{t}</h3>
-            <p class="mx-auto mt-2 max-w-xs text-sm text-charcoal/65">{d}</p>
+        values.map((v) => (
+          <div class="flex flex-col items-center">
+            <span class="icon-medallion" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" set:html={v.svg} />
+            </span>
+            <h3 class="mt-5 font-serif text-xl">{v.title}</h3>
+            <p class="mx-auto mt-2 max-w-xs text-sm text-charcoal/65">{v.desc}</p>
           </div>
         ))
       }
