@@ -29,7 +29,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
       aria-label="Open menu"
       aria-expanded="false"
       aria-controls="mobile-nav"
-      class="flex h-10 w-10 items-center justify-center md:hidden"
+      class="header-icon flex h-10 w-10 items-center justify-center md:hidden"
     >
       <span class="sr-only">Menu</span>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -43,10 +43,8 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
         nav.map((item) => (
           <a
             href={item.href}
-            class:list={[
-              "link-underline text-[0.78rem] uppercase tracking-[0.16em]",
-              isActive(item.href) ? "text-champagne" : "text-charcoal/80 hover:text-charcoal",
-            ]}
+            data-active={isActive(item.href)}
+            class="nav-link link-underline text-[0.78rem] uppercase tracking-[0.16em]"
           >
             {item.label}
           </a>
@@ -99,6 +97,31 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
   </div>
 </header>
 
+<style is:global>
+  /* Header colour adapts to what's behind it: dark text on the solid white
+     header, light text while transparent over the photo hero. */
+  #site-header .nav-link {
+    color: color-mix(in srgb, var(--color-charcoal) 78%, transparent);
+  }
+  #site-header .nav-link:hover {
+    color: var(--color-charcoal);
+  }
+  #site-header .nav-link[data-active="true"] {
+    color: var(--color-champagne);
+  }
+  #site-header[data-transparent="true"]:not(.is-solid) .nav-link,
+  #site-header[data-transparent="true"]:not(.is-solid) .header-icon,
+  #site-header[data-transparent="true"]:not(.is-solid) [aria-label^="Open bag"] {
+    color: rgba(255, 255, 255, 0.92);
+  }
+  #site-header[data-transparent="true"]:not(.is-solid) .nav-link:hover {
+    color: #fff;
+  }
+  #site-header[data-transparent="true"]:not(.is-solid) .nav-link[data-active="true"] {
+    color: var(--color-champagne-soft);
+  }
+</style>
+
 <script>
   // Transparent-over-hero header that turns solid on scroll, plus mobile menu.
   const header = document.getElementById("site-header");
@@ -112,6 +135,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
     header.classList.toggle("backdrop-blur", solid);
     header.classList.toggle("border-b", solid);
     header.classList.toggle("hairline", solid);
+    header.classList.toggle("is-solid", solid);
   }
 
   // Pages without a hero are solid from the start.
