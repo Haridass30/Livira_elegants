@@ -8,12 +8,16 @@ import {
   createCollection,
   renameCollection,
   deleteCollection,
+  setCollectionKind,
+  reassignCategory,
   type CollectionRow,
   type CollectionNode,
 } from "../_lib/catalogDb";
 
 const inputStyle =
   "padding:8px 10px;border:1px solid rgba(43,39,36,.25);border-radius:2px";
+const ghostBtn =
+  "background:#fff;color:var(--char);border:1px solid rgba(43,39,36,.25)";
 
 /** Rename + delete controls shared by mains and subs. */
 function renameForm(c: CollectionRow): string {
@@ -25,13 +29,15 @@ function renameForm(c: CollectionRow): string {
   </form>`;
 }
 
-function deleteForm(c: CollectionRow, isGroup: boolean): string {
-  const hasProducts = (c.product_count ?? 0) > 0;
-  const disabled = hasProducts
-    ? ' disabled title="Move its products first"'
+function deleteForm(
+  c: CollectionRow,
+  opts: { isGroup: boolean; blockReason?: string },
+): string {
+  const disabled = opts.blockReason
+    ? ` disabled title="${esc(opts.blockReason)}"`
     : "";
-  const confirm = isGroup
-    ? `Delete group “${esc(c.name)}”? (must have no sub-categories)`
+  const confirm = opts.isGroup
+    ? `Delete group “${esc(c.name)}”?`
     : `Delete “${esc(c.name)}”?`;
   return `<form method="post" onsubmit="return confirm('${confirm}')">
     <input type="hidden" name="action" value="delete"/>
@@ -40,11 +46,41 @@ function deleteForm(c: CollectionRow, isGroup: boolean): string {
   </form>`;
 }
 
+/** Convert a Direct main into a Group (optionally rehoming its products into a
+ *  first sub-category), or a childless Group back into a Direct. */
+function convertControl(m: CollectionNode): string {
+  if (m.kind === "group") {
+    const blocked = m.children.length > 0;
+    const attr = blocked
+      ? ' disabled title="Delete or move its sub-categories first"'
+      : "";
+    return `<form method="post" onsubmit="return confirm('Convert “${esc(m.name)}” back to a direct product category?')">
+      <input type="hidden" name="action" value="to_direct"/>
+      <input type="hidden" name="name" value="${esc(m.name)}"/>
+      <button type="submit" style="${ghostBtn}"${attr}>Convert to direct</button>
+    </form>`;
+  }
+  const count = m.product_count ?? 0;
+  // A direct main with products must name a sub-category to hold them on convert.
+  const moveInput =
+    count > 0
+      ? `<input name="move_to" required placeholder="Sub-category for its ${count} product${count === 1 ? "" : "s"}" style="${inputStyle};min-width:210px"/>`
+      : "";
+  return `<form method="post" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <input type="hidden" name="action" value="to_group"/>
+    <input type="hidden" name="name" value="${esc(m.name)}"/>
+    ${moveInput}
+    <button type="submit" style="${ghostBtn}">Convert to group ▾</button>
+  </form>`;
+}
+
 function subRow(s: CollectionRow): string {
+  const blockReason =
+    (s.product_count ?? 0) > 0 ? "Move its products first" : undefined;
   return `<tr>
     <td style="padding-left:32px">↳ ${renameForm(s)}</td>
     <td>${s.product_count} product${s.product_count === 1 ? "" : "s"}</td>
-    <td>${deleteForm(s, false)}</td>
+    <td>${deleteForm(s, { isGroup: false, blockReason })}</td>
   </tr>`;
 }
 
@@ -58,10 +94,23 @@ function mainBlock(m: CollectionNode): string {
     ? `${m.children.length} sub-categor${m.children.length === 1 ? "y" : "ies"}`
     : `${m.product_count} product${m.product_count === 1 ? "" : "s"}`;
 
+  const blockReason = isGroup
+    ? m.children.length > 0
+      ? "Delete its sub-categories first"
+      : undefined
+    : (m.product_count ?? 0) > 0
+      ? "Move its products first"
+      : undefined;
+
+  const actions = `<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+    ${convertControl(m)}
+    ${deleteForm(m, { isGroup, blockReason })}
+  </div>`;
+
   const header = `<tr style="background:#faf7f2">
     <td><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${badge} ${renameForm(m)}</div></td>
     <td>${meta}</td>
-    <td>${deleteForm(m, isGroup)}</td>
+    <td>${actions}</td>
   </tr>`;
 
   const subs = isGroup ? m.children.map(subRow).join("") : "";
@@ -94,7 +143,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const body = `
     <p><a href="/admin/products">← Back to products</a></p>
     <h1>Collections</h1>
-    <p class="muted">Collections group products in the shop. A <strong>Direct</strong> main category holds products itself; a <strong>Group</strong> main category holds sub-categories, and products live under those. A category can only be deleted when it has no products (and no sub-categories).</p>
+    <p class="muted">Collections group products in the shop. A <strong>Direct</strong> main category holds products itself; a <strong>Group</strong> main category holds sub-categories, and products live under those (e.g. <em>Necklaces</em> → <em>Gold Necklaces</em>, <em>Silver Necklaces</em>). Use <strong>Convert to group</strong> to give an existing category sub-categories — its current products move into a first sub-category you name, then re-file individual products from the product editor. A category can only be deleted when it has no products (and no sub-categories).</p>
     ${msg ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a">${esc(msg)}</div>` : ""}
     ${err ? `<div class="err">${esc(err)}</div>` : ""}
     <table>
@@ -146,6 +195,41 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return fail("Sub-categories can only be added to a Group main category.");
       await createCollection(env, name, parent, "direct");
       return ok(`Sub-category “${name}” added to “${parent}”.`);
+    }
+
+    if (action === "to_group") {
+      const name = String(form.get("name") ?? "");
+      const moveTo = String(form.get("move_to") ?? "").trim();
+      const all = await listCollections(env);
+      const row = all.find((c) => c.name === name);
+      if (!row || row.parent) return fail("Not a main category.");
+      if (row.kind === "group") return ok(`“${name}” is already a group.`);
+      const count = row.product_count ?? 0;
+      if (count > 0) {
+        if (moveTo.length < 2 || moveTo.length > 40)
+          return fail(`Enter a sub-category name (2–40 chars) to hold “${name}”’s ${count} products.`);
+        if (all.some((c) => c.name === moveTo))
+          return fail("A collection with that name already exists.");
+        await createCollection(env, moveTo, name, "direct");
+        await reassignCategory(env, name, moveTo);
+      }
+      await setCollectionKind(env, name, "group");
+      return ok(
+        count > 0
+          ? `“${name}” is now a group; its ${count} product${count === 1 ? "" : "s"} moved to “${moveTo}”. Add more sub-categories below.`
+          : `“${name}” is now a group — add sub-categories to it below.`,
+      );
+    }
+
+    if (action === "to_direct") {
+      const name = String(form.get("name") ?? "");
+      const all = await listCollections(env);
+      const row = all.find((c) => c.name === name);
+      if (!row || row.parent) return fail("Not a main category.");
+      if (all.some((c) => c.parent === name))
+        return fail("Delete or move its sub-categories first.");
+      await setCollectionKind(env, name, "direct");
+      return ok(`“${name}” is now a direct category that holds products.`);
     }
 
     if (action === "rename") {

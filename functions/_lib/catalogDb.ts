@@ -403,3 +403,30 @@ export async function deleteCollection(
   await env.DB.prepare(`DELETE FROM collections WHERE name = ?`).bind(name).run();
   return null;
 }
+
+/** Flip a main category between 'direct' (holds products) and 'group' (holds subs). */
+export async function setCollectionKind(
+  env: Env,
+  name: string,
+  kind: CollectionKind,
+): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE collections SET kind = ? WHERE name = ? AND parent IS NULL`,
+  )
+    .bind(kind, name)
+    .run();
+}
+
+/** Re-file every product from one category name to another; returns rows moved. */
+export async function reassignCategory(
+  env: Env,
+  from: string,
+  to: string,
+): Promise<number> {
+  const res = await env.DB.prepare(
+    `UPDATE products SET category = ?, updated_at = datetime('now') WHERE category = ?`,
+  )
+    .bind(to, from)
+    .run();
+  return res.meta.changes ?? 0;
+}
