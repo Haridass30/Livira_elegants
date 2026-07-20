@@ -4,8 +4,44 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import ProductCard from "../components/ProductCard.astro";
 
 const products = await getCollection("products");
-// Collections present in the catalogue (managed from /admin/collections).
-const categories = [...new Set(products.map((p) => p.data.category))].sort();
+const cats = (await getCollection("categories")).map((c) => c.data);
+
+// Resolve a product's leaf category to its top-level "main":
+//  - a direct main → itself
+//  - a sub-category → its parent main
+//  - unknown (category tree unavailable) → the leaf itself (flat fallback)
+const byName = new Map(cats.map((c) => [c.name, c]));
+const mainOf = (leaf: string) => {
+  const c = byName.get(leaf);
+  if (!c) return leaf;
+  return c.parent ?? c.name;
+};
+
+const productLeaves = new Set(products.map((p) => p.data.category));
+const presentMains = new Set(products.map((p) => mainOf(p.data.category)));
+
+// Ordered main categories: known mains (by admin position) that have products,
+// then any unknown leaves (flat fallback) alphabetically.
+const knownMains = cats
+  .filter((c) => !c.parent && presentMains.has(c.name))
+  .sort((a, b) => a.position - b.position)
+  .map((c) => c.name);
+const unknownMains = [...presentMains]
+  .filter((n) => !byName.has(n))
+  .sort((a, b) => a.localeCompare(b));
+
+const mains = [...knownMains, ...unknownMains].map((name) => {
+  const c = byName.get(name);
+  const isGroup = c?.kind === "group";
+  const subs = isGroup
+    ? cats
+        .filter((s) => s.parent === name && productLeaves.has(s.name))
+        .sort((a, b) => a.position - b.position)
+        .map((s) => s.name)
+    : [];
+  return { name, isGroup: isGroup && subs.length > 0, subs };
+});
+
 // Stable default order: in-stock & featured first, then by name.
 products.sort((a, b) => {
   const score = (x: typeof a) =>
@@ -13,7 +49,10 @@ products.sort((a, b) => {
   return score(a) - score(b) || a.data.name.localeCompare(b.data.name);
 });
 
-const filters = ["All", ...categories] as const;
+const chipClass =
+  "filter-btn border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory";
+const subChipClass =
+  "sub-btn border hairline px-3.5 py-1.5 text-[0.7rem] uppercase tracking-[0.1em] text-charcoal/60 transition-colors data-[active=true]:border-champagne data-[active=true]:text-charcoal data-[active=true]:bg-bone";
 ---
 
 <BaseLayout
@@ -33,17 +72,37 @@ const filters = ["All", ...categories] as const;
     <div
       class="mt-10 flex flex-col gap-4 border-y hairline py-4 md:flex-row md:items-center md:justify-between"
     >
-      <div class="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+          <button type="button" data-main="All" class={chipClass}>All</button>
+          {
+            mains.map((m) => (
+              <button type="button" data-main={m.name} class={chipClass}>
+                {m.name}
+              </button>
+            ))
+          }
+        </div>
         {
-          filters.map((f) => (
-            <button
-              type="button"
-              data-filter={f}
-              class="filter-btn border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory"
-            >
-              {f}
-            </button>
-          ))
+          mains
+            .filter((m) => m.isGroup)
+            .map((m) => (
+              <div
+                class="sub-row hidden flex-wrap gap-2"
+                data-parent={m.name}
+                role="group"
+                aria-label={`Filter ${m.name} by type`}
+              >
+                <button type="button" data-sub="" data-parent={m.name} class={subChipClass}>
+                  All {m.name}
+                </button>
+                {m.subs.map((s) => (
+                  <button type="button" data-sub={s} data-parent={m.name} class={subChipClass}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ))
         }
       </div>
       <label class="flex items-center gap-3 text-xs uppercase tracking-[0.12em] text-charcoal/60">
@@ -70,6 +129,7 @@ const filters = ["All", ...categories] as const;
           <div
             class="product-item"
             data-category={entry.data.category}
+            data-main={mainOf(entry.data.category)}
             data-price={entry.data.price}
             data-name={entry.data.name}
             data-order={i}
@@ -88,26 +148,34 @@ const filters = ["All", ...categories] as const;
 
 <script>
   const grid = document.getElementById("product-grid")!;
-  const items = Array.from(
-    grid.querySelectorAll<HTMLElement>(".product-item"),
-  );
-  const filterBtns = document.querySelectorAll<HTMLButtonElement>(".filter-btn");
+  const items = Array.from(grid.querySelectorAll<HTMLElement>(".product-item"));
+  const mainBtns = document.querySelectorAll<HTMLButtonElement>(".filter-btn");
+  const subBtns = document.querySelectorAll<HTMLButtonElement>(".sub-btn");
+  const subRows = document.querySelectorAll<HTMLElement>(".sub-row");
   const sortSel = document.getElementById("sort") as HTMLSelectElement;
   const empty = document.getElementById("empty-state")!;
 
-  let activeFilter = "All";
+  // leaf category → main, and the set of main names, built from the rendered grid.
+  const catToMain = new Map<string, string>();
+  for (const el of items) {
+    catToMain.set(el.dataset.category!, el.dataset.main!);
+  }
+  const mainNames = new Set([...mainBtns].map((b) => b.dataset.main!));
+
+  let activeMain = "All";
+  let activeSub = ""; // leaf name, or "" for the whole main
 
   function apply() {
-    // Filter
     let visible = 0;
     for (const el of items) {
-      const show = activeFilter === "All" || el.dataset.category === activeFilter;
+      const inMain = activeMain === "All" || el.dataset.main === activeMain;
+      const inSub = activeSub === "" || el.dataset.category === activeSub;
+      const show = inMain && inSub;
       el.style.display = show ? "" : "none";
       if (show) visible++;
     }
     empty.classList.toggle("hidden", visible > 0);
 
-    // Sort (reorder visible nodes)
     const sort = sortSel.value;
     const sorted = [...items].sort((a, b) => {
       const pa = +a.dataset.price!,
@@ -126,28 +194,67 @@ const filters = ["All", ...categories] as const;
     sorted.forEach((el) => grid.appendChild(el));
   }
 
-  function setFilter(f: string) {
-    activeFilter = f;
-    filterBtns.forEach((b) =>
-      b.setAttribute("data-active", String(b.dataset.filter === f)),
+  function syncChips() {
+    mainBtns.forEach((b) =>
+      b.setAttribute("data-active", String(b.dataset.main === activeMain)),
     );
+    // Reveal only the active main's sub-row (if it has one).
+    subRows.forEach((row) =>
+      row.classList.toggle("hidden", row.dataset.parent !== activeMain),
+    );
+    subRows.forEach((row) => row.classList.toggle("flex", row.dataset.parent === activeMain));
+    subBtns.forEach((b) =>
+      b.setAttribute(
+        "data-active",
+        String(b.dataset.parent === activeMain && (b.dataset.sub ?? "") === activeSub),
+      ),
+    );
+  }
+
+  function setMain(main: string, sub = "") {
+    activeMain = mainNames.has(main) ? main : "All";
+    activeSub = sub;
+    syncChips();
     const url = new URL(window.location.href);
-    if (f === "All") url.searchParams.delete("category");
-    else url.searchParams.set("category", f);
+    url.searchParams.delete("sub");
+    if (activeMain === "All") url.searchParams.delete("category");
+    else url.searchParams.set("category", activeMain);
+    if (activeSub) url.searchParams.set("sub", activeSub);
     history.replaceState({}, "", url);
     apply();
   }
 
-  filterBtns.forEach((b) =>
-    b.addEventListener("click", () => setFilter(b.dataset.filter!)),
+  function setSub(sub: string) {
+    activeSub = sub;
+    syncChips();
+    const url = new URL(window.location.href);
+    if (sub) url.searchParams.set("sub", sub);
+    else url.searchParams.delete("sub");
+    history.replaceState({}, "", url);
+    apply();
+  }
+
+  mainBtns.forEach((b) =>
+    b.addEventListener("click", () => setMain(b.dataset.main!)),
+  );
+  subBtns.forEach((b) =>
+    b.addEventListener("click", () => setSub(b.dataset.sub ?? "")),
   );
   sortSel.addEventListener("change", apply);
 
-  // Honour ?category= deep links (e.g. from the homepage tiles).
-  const initial = new URLSearchParams(location.search).get("category");
-  setFilter(
-    initial && [...filterBtns].some((b) => b.dataset.filter === initial)
-      ? initial
-      : "All",
-  );
+  // Honour deep links. ?sub= wins; otherwise ?category= may name a main OR a
+  // leaf sub-category (e.g. from a homepage tile) — resolve either to a main.
+  const params = new URLSearchParams(location.search);
+  const subParam = params.get("sub");
+  const catParam = params.get("category");
+  if (subParam && catToMain.has(subParam)) {
+    setMain(catToMain.get(subParam)!, subParam);
+  } else if (catParam && mainNames.has(catParam)) {
+    setMain(catParam);
+  } else if (catParam && catToMain.has(catParam)) {
+    const main = catToMain.get(catParam)!;
+    setMain(main, main === catParam ? "" : catParam);
+  } else {
+    setMain("All");
+  }
 </script>

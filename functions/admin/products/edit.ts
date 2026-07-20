@@ -15,6 +15,8 @@ import {
   deleteImage,
   moveImage,
   listCollections,
+  buildCollectionTree,
+  listAssignableCollections,
   type ProductInput,
 } from "../../_lib/catalogDb";
 
@@ -57,11 +59,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const images = product ? await listImages(env, product.slug) : [];
   const isNew = !product;
 
-  const catOptions = collections
-    .map(
-      (c) =>
-        `<option value="${esc(c.name)}"${product?.category === c.name ? " selected" : ""}>${esc(c.name)}</option>`,
-    )
+  // Only leaf categories are assignable: direct mains and sub-categories.
+  // Group mains render as <optgroup> labels wrapping their sub-categories.
+  const opt = (name: string) =>
+    `<option value="${esc(name)}"${product?.category === name ? " selected" : ""}>${esc(name)}</option>`;
+  const catOptions = buildCollectionTree(collections)
+    .map((m) => {
+      if (m.kind !== "group") return opt(m.name);
+      if (m.children.length === 0) return "";
+      return `<optgroup label="${esc(m.name)}">${m.children.map((s) => opt(s.name)).join("")}</optgroup>`;
+    })
     .join("");
 
   const imageCards = images
@@ -221,7 +228,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     // save (create or update)
-    const collections = await listCollections(env);
+    const collections = await listAssignableCollections(env);
     const input = formToInput(form, collections[0]?.name ?? "Uncategorised");
     if (!input.name || !input.price || !input.description || !input.material) {
       return back(slug, "err=" + encodeURIComponent("Please fill all required fields."));

@@ -72,4 +72,38 @@ const products = defineCollection({
   }),
 });
 
-export const collections = { products };
+/**
+ * Category tree — mains + sub-categories, loaded at BUILD TIME from
+ * /api/collections (backed by D1). Drives the shop's two-level filters and the
+ * homepage collection tiles. Falls back to empty on an unreachable API so the
+ * storefront degrades to flat, product-derived filters rather than failing.
+ */
+const categories = defineCollection({
+  loader: async () => {
+    try {
+      const res = await fetch(`${CATALOG_API}/api/collections`, {
+        headers: { accept: "application/json" },
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const items = (await res.json()) as Array<{ name: string; [k: string]: unknown }>;
+      console.log(`[categories] loaded ${items.length} categories from ${CATALOG_API}`);
+      return items.map((c) => ({ id: c.name, ...c }));
+    } catch (err) {
+      console.warn(
+        `[categories] WARNING: could not load categories from ${CATALOG_API} (${err}). Building with flat filters.`,
+      );
+      return [];
+    }
+  },
+  schema: z.object({
+    name: z.string(),
+    /** NULL for a main category; the main's name for a sub-category. */
+    parent: z.string().nullable().default(null),
+    /** 'direct' holds products; 'group' holds sub-categories. */
+    kind: z.enum(["direct", "group"]).default("direct"),
+    position: z.number().default(0),
+    productCount: z.number().default(0),
+  }),
+});
+
+export const collections = { products, categories };

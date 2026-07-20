@@ -294,27 +294,68 @@ export async function moveImage(env: Env, id: number, dir: "up" | "down"): Promi
  * Collections
  * ------------------------------------------------------------------ */
 
+export type CollectionKind = "direct" | "group";
+
 export interface CollectionRow {
   name: string;
   position: number;
+  /** NULL for a top-level "main" category; the main's name for a sub-category. */
+  parent: string | null;
+  /** Only meaningful for mains: 'direct' holds products, 'group' holds subs. */
+  kind: CollectionKind;
   product_count?: number;
+}
+
+/** A main category with its ordered sub-categories attached. */
+export interface CollectionNode extends CollectionRow {
+  children: CollectionRow[];
 }
 
 export async function listCollections(env: Env): Promise<CollectionRow[]> {
   const res = await env.DB.prepare(
-    `SELECT c.name, c.position,
+    `SELECT c.name, c.position, c.parent, c.kind,
             (SELECT COUNT(*) FROM products p WHERE p.category = c.name AND p.active = 1) AS product_count
      FROM collections c ORDER BY c.position, c.name`,
   ).all<CollectionRow>();
   return res.results ?? [];
 }
 
-export async function createCollection(env: Env, name: string): Promise<void> {
+/** Group the flat rows into ordered mains, each carrying its ordered children. */
+export function buildCollectionTree(rows: CollectionRow[]): CollectionNode[] {
+  const byPos = (a: CollectionRow, b: CollectionRow) =>
+    a.position - b.position || a.name.localeCompare(b.name);
+  const childrenOf = new Map<string, CollectionRow[]>();
+  for (const r of rows) {
+    if (!r.parent) continue;
+    const arr = childrenOf.get(r.parent) ?? [];
+    arr.push(r);
+    childrenOf.set(r.parent, arr);
+  }
+  return rows
+    .filter((r) => !r.parent)
+    .sort(byPos)
+    .map((m) => ({ ...m, children: (childrenOf.get(m.name) ?? []).sort(byPos) }));
+}
+
+/** Leaf collections a product can be assigned to: direct mains + all subs. */
+export async function listAssignableCollections(env: Env): Promise<CollectionRow[]> {
+  const all = await listCollections(env);
+  return all.filter((c) => (c.parent ? true : c.kind === "direct"));
+}
+
+export async function createCollection(
+  env: Env,
+  name: string,
+  parent: string | null = null,
+  kind: CollectionKind = "direct",
+): Promise<void> {
+  // Sub-categories always hold products; only mains carry a meaningful kind.
+  const effectiveKind: CollectionKind = parent ? "direct" : kind;
   await env.DB.prepare(
-    `INSERT INTO collections (name, position)
-     VALUES (?, (SELECT COALESCE(MAX(position),0)+1 FROM collections))`,
+    `INSERT INTO collections (name, position, parent, kind)
+     VALUES (?, (SELECT COALESCE(MAX(position),0)+1 FROM collections), ?, ?)`,
   )
-    .bind(name.trim())
+    .bind(name.trim(), parent, effectiveKind)
     .run();
 }
 
@@ -328,6 +369,11 @@ export async function renameCollection(
       newName.trim(),
       oldName,
     ),
+    // Re-point any sub-categories that hung off the old main name.
+    env.DB.prepare(`UPDATE collections SET parent = ? WHERE parent = ?`).bind(
+      newName.trim(),
+      oldName,
+    ),
     env.DB.prepare(`UPDATE products SET category = ? WHERE category = ?`).bind(
       newName.trim(),
       oldName,
@@ -335,14 +381,25 @@ export async function renameCollection(
   ]);
 }
 
-/** Delete only when empty; returns false if it still has products. */
-export async function deleteCollection(env: Env, name: string): Promise<boolean> {
-  const count = await env.DB.prepare(
+export type DeleteBlock = "products" | "children";
+
+/** Delete only when empty; returns why it was blocked, or null on success. */
+export async function deleteCollection(
+  env: Env,
+  name: string,
+): Promise<DeleteBlock | null> {
+  const products = await env.DB.prepare(
     `SELECT COUNT(*) AS c FROM products WHERE category = ? AND active = 1`,
   )
     .bind(name)
     .first<{ c: number }>();
-  if ((count?.c ?? 0) > 0) return false;
+  if ((products?.c ?? 0) > 0) return "products";
+  const kids = await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM collections WHERE parent = ?`,
+  )
+    .bind(name)
+    .first<{ c: number }>();
+  if ((kids?.c ?? 0) > 0) return "children";
   await env.DB.prepare(`DELETE FROM collections WHERE name = ?`).bind(name).run();
-  return true;
+  return null;
 }

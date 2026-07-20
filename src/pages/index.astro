@@ -11,8 +11,23 @@ const { slides } = await getSiteContent();
 const multiple = slides.length > 1;
 
 const all = await getCollection("products");
-// Collections present in the catalogue (managed from /admin/collections).
-const categories = [...new Set(all.map((p) => p.data.category))].sort();
+// Shop-by tiles use top-level "main" categories (managed from /admin/collections):
+// a direct main that has products, or a group main with at least one populated
+// sub-category. Falls back to distinct product categories if the tree is empty.
+const cats = (await getCollection("categories")).map((c) => c.data);
+const productLeaves = new Set(all.map((p) => p.data.category));
+const mainCategories = cats
+  .filter((c) => !c.parent)
+  .sort((a, b) => a.position - b.position)
+  .filter((m) =>
+    m.kind === "group"
+      ? cats.some((s) => s.parent === m.name && productLeaves.has(s.name))
+      : productLeaves.has(m.name),
+  )
+  .map((m) => m.name);
+const categories = mainCategories.length
+  ? mainCategories
+  : [...productLeaves].sort();
 const featured = all.filter((p) => p.data.featured).slice(0, 3);
 // Top up to 3 if not enough are flagged featured.
 const featuredGrid =
