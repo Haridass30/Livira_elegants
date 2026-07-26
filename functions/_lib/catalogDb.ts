@@ -316,6 +316,8 @@ export interface CollectionRow {
   position: number;
   /** NULL for a top-level "main" category; the main's name for a sub-category. */
   parent: string | null;
+  /** 1 = hidden from the shop (disabled). */
+  hidden: number;
   product_count?: number;
 }
 
@@ -326,11 +328,29 @@ export interface CollectionNode extends CollectionRow {
 
 export async function listCollections(env: Env): Promise<CollectionRow[]> {
   const res = await env.DB.prepare(
-    `SELECT c.name, c.position, c.parent,
+    `SELECT c.name, c.position, c.parent, c.hidden,
             (SELECT COUNT(*) FROM products p WHERE p.category = c.name AND p.active = 1) AS product_count
      FROM collections c ORDER BY c.position, c.name`,
   ).all<CollectionRow>();
   return res.results ?? [];
+}
+
+/** Show/hide a collection in the shop (disable without deleting). */
+export async function setCollectionHidden(env: Env, name: string, hidden: boolean): Promise<void> {
+  await env.DB.prepare(`UPDATE collections SET hidden = ? WHERE name = ?`)
+    .bind(hidden ? 1 : 0, name)
+    .run();
+}
+
+/** Category names that are hidden — hidden collections plus subs of hidden mains. */
+export async function hiddenCategoryNames(env: Env): Promise<Set<string>> {
+  const all = await listCollections(env);
+  const hiddenMains = new Set(all.filter((c) => !c.parent && c.hidden).map((c) => c.name));
+  const hidden = new Set<string>();
+  for (const c of all) {
+    if (c.hidden || (c.parent && hiddenMains.has(c.parent))) hidden.add(c.name);
+  }
+  return hidden;
 }
 
 /** Group the flat rows into ordered mains, each carrying its ordered children. */

@@ -15,6 +15,7 @@ import {
   renameCollection,
   deleteCollection,
   setCollectionParent,
+  setCollectionHidden,
   type CollectionRow,
   type CollectionNode,
 } from "../_lib/catalogDb";
@@ -64,6 +65,16 @@ function deleteForm(c: CollectionRow, blockReason?: string): string {
   </form>`;
 }
 
+function hiddenForm(c: CollectionRow): string {
+  const hidden = c.hidden === 1;
+  return `<form method="post" style="display:inline;margin-right:6px">
+    <input type="hidden" name="action" value="toggle_hidden"/>
+    <input type="hidden" name="name" value="${esc(c.name)}"/>
+    <input type="hidden" name="hidden" value="${hidden ? "0" : "1"}"/>
+    <button type="submit" style="background:${hidden ? "#2f6b3a" : "#8a6d1e"}">${hidden ? "Show" : "Hide"}</button>
+  </form>`;
+}
+
 function rowFor(
   c: CollectionRow,
   opts: { indent: boolean; mains: CollectionRow[]; hasChildren: boolean },
@@ -74,11 +85,12 @@ function rowFor(
     : count > 0
       ? "Move its products first"
       : undefined;
-  return `<tr${opts.indent ? ' style="background:#fcfbf9"' : ""}>
-    <td style="${opts.indent ? "padding-left:26px" : ""}">${renameForm(c, opts.indent)}</td>
+  const rowStyle = c.hidden === 1 ? ' style="opacity:.55"' : opts.indent ? ' style="background:#fcfbf9"' : "";
+  return `<tr${rowStyle}>
+    <td style="${opts.indent ? "padding-left:26px" : ""}">${renameForm(c, opts.indent)}${c.hidden === 1 ? ' <span class="muted" style="font-size:11px">· hidden</span>' : ""}</td>
     <td>${count} product${count === 1 ? "" : "s"}</td>
     <td>${parentForm(c, opts.mains, !opts.hasChildren)}</td>
-    <td>${deleteForm(c, blockReason)}</td>
+    <td style="white-space:nowrap">${hiddenForm(c)}${deleteForm(c, blockReason)}</td>
   </tr>`;
 }
 
@@ -191,6 +203,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return ok(
         parent ? `“${name}” moved under “${parent}”.` : `“${name}” moved to the top level.`,
       );
+    }
+
+    if (action === "toggle_hidden") {
+      const name = String(form.get("name") ?? "");
+      const hidden = String(form.get("hidden") ?? "") === "1";
+      if (name) await setCollectionHidden(env, name, hidden);
+      return ok(hidden ? `“${name}” is now hidden from the shop.` : `“${name}” is visible again.`);
     }
 
     if (action === "rename") {

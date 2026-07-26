@@ -12,14 +12,18 @@ import { json } from "../_lib/http";
 import {
   listProducts,
   listAllImages,
+  hiddenCategoryNames,
   effectiveInStock,
 } from "../_lib/catalogDb";
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
-  const [products, images] = await Promise.all([
+  const [allProducts, images, hiddenCats] = await Promise.all([
     listProducts(env),
     listAllImages(env),
+    hiddenCategoryNames(env),
   ]);
+  // Drop products whose collection (or its main) is hidden from the shop.
+  const products = allProducts.filter((p) => !hiddenCats.has(p.category));
 
   const imagesBySlug = new Map<string, typeof images>();
   for (const img of images) {

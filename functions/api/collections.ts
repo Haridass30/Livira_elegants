@@ -11,7 +11,9 @@ import { listCollections } from "../_lib/catalogDb";
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const cols = await listCollections(env);
-  const payload = cols.map((c) => ({
+  const hiddenMains = new Set(cols.filter((c) => !c.parent && c.hidden).map((c) => c.name));
+  const visible = cols.filter((c) => !c.hidden && !(c.parent && hiddenMains.has(c.parent)));
+  const payload = visible.map((c) => ({
     name: c.name,
     parent: c.parent,
     position: c.position,
