@@ -60,6 +60,27 @@ export default function CheckoutForm() {
       .catch(() => {});
   }, []);
 
+  // Auto-fill from the signed-in customer's saved details (empty fields only).
+  useEffect(() => {
+    fetch("/api/account/me", { headers: { accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const a = d?.account;
+        if (!a) return;
+        setCustomer((c) => ({
+          ...c,
+          name: c.name || a.name || "",
+          phone: c.phone || a.phone || "",
+          email: c.email || a.email || "",
+          street: c.street || a.street || "",
+          landmark: c.landmark || a.landmark || "",
+          city: c.city || a.city || "",
+          pincode: c.pincode || a.pincode || "",
+        }));
+      })
+      .catch(() => {});
+  }, []);
+
   const freeShippingThreshold = config?.freeShippingThreshold ?? site.freeShippingThreshold;
   const flatShippingFee = config?.flatShippingFee ?? site.flatShippingFee;
   const codMaxOrderValue = config?.codMaxOrderValue ?? site.codMaxOrderValue;

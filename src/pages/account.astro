@@ -1,0 +1,10 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import AccountPanel from "../components/react/AccountPanel.tsx";
+---
+
+<BaseLayout title="My Account" description="Sign in to view your orders and reorder faster." noindex>
+  <section class="container-page py-14 md:py-20">
+    <AccountPanel client:load />
+  </section>
+</BaseLayout>

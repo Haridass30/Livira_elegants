@@ -28,6 +28,41 @@ export async function hmacSha256Hex(
   return toHex(sig);
 }
 
+function hexToBytes(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+
+/**
+ * Hash a password with PBKDF2-SHA256 (150k iterations). Returns
+ * "saltHex:hashHex"; pass an existing salt to reproduce a hash for verifying.
+ */
+export async function hashPassword(password: string, saltHex?: string): Promise<string> {
+  const salt = saltHex ? hexToBytes(saltHex) : crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: salt as BufferSource, iterations: 150_000, hash: "SHA-256" },
+    keyMaterial,
+    256,
+  );
+  return `${toHex(salt.buffer as ArrayBuffer)}:${toHex(bits)}`;
+}
+
+/** Verify a password against a stored "saltHex:hashHex" value. */
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [saltHex] = stored.split(":");
+  if (!saltHex) return false;
+  const computed = await hashPassword(password, saltHex);
+  return safeEqual(computed, stored);
+}
+
 /** Constant-time-ish comparison to avoid trivial timing leaks. */
 export function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

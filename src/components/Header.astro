@@ -85,6 +85,16 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
           <path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         </svg>
       </button>
+      <a
+        href="/account"
+        aria-label="My account"
+        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-charcoal"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.5" />
+          <path d="M5 20a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </a>
       <CartButton client:load />
     </div>
   </div>
@@ -127,6 +137,9 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
           </a>
         ))
       }
+      <a href="/account" class="border-t hairline py-3 text-sm uppercase tracking-[0.16em] text-charcoal/80">
+        My account
+      </a>
     </nav>
   </div>
 </header>
