@@ -28,12 +28,20 @@ export interface ResolvedHero {
 /** A banner slide is shaped exactly like the hero. */
 export type ResolvedSlide = ResolvedHero;
 
+export interface BentoBox {
+  imageId: number | null;
+  link: string;
+  caption: string;
+}
+
 export interface ResolvedContent {
   announcements: string[];
   /** First slide, kept for callers that only expect one hero. */
   hero: ResolvedHero;
   /** Full banner carousel (always at least one slide). */
   slides: ResolvedSlide[];
+  /** Admin-uploaded bento image tiles (up to 5). */
+  bento: BentoBox[];
 }
 
 const DEFAULT_SLIDE: ResolvedHero = {
@@ -50,6 +58,7 @@ const DEFAULTS: ResolvedContent = {
   announcements: site.announcements ?? [],
   hero: DEFAULT_SLIDE,
   slides: [DEFAULT_SLIDE],
+  bento: [],
 };
 
 interface RawSlide {
@@ -109,6 +118,7 @@ async function load(tries = 4): Promise<ResolvedContent> {
         announcements?: string[];
         hero?: RawSlide;
         slides?: RawSlide[];
+        bento?: BentoBox[];
       };
 
       const rawSlides =
@@ -127,6 +137,15 @@ async function load(tries = 4): Promise<ResolvedContent> {
             : DEFAULTS.announcements,
         hero: slides[0],
         slides,
+        bento: Array.isArray(d.bento)
+          ? d.bento
+              .slice(0, 5)
+              .map((b) => ({
+                imageId: Number.isInteger(Number(b?.imageId)) && Number(b?.imageId) > 0 ? Number(b?.imageId) : null,
+                link: typeof b?.link === "string" ? b.link : "",
+                caption: typeof b?.caption === "string" ? b.caption : "",
+              }))
+          : [],
       };
     } catch (err) {
       lastErr = err;

@@ -115,6 +115,51 @@ export async function getDeployHookUrl(env: Env): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ *
+ * Bento — up to 5 admin-uploaded image tiles (with links) shown in a
+ * varied-size grid on the homepage. Box 0 is the large feature tile.
+ * ------------------------------------------------------------------ */
+
+export interface BentoBox {
+  imageId: number | null;
+  link: string;
+  caption: string;
+}
+
+function normBento(x: unknown): BentoBox {
+  const o = (x ?? {}) as Record<string, unknown>;
+  const id = Number(o.imageId);
+  return {
+    imageId: Number.isInteger(id) && id > 0 ? id : null,
+    link: typeof o.link === "string" ? o.link.trim() : "",
+    caption: typeof o.caption === "string" ? o.caption.trim() : "",
+  };
+}
+
+export async function getBento(env: Env): Promise<BentoBox[]> {
+  const raw = await getRawSetting(env, "bento");
+  if (raw) {
+    try {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return p.slice(0, 5).map(normBento);
+    } catch {
+      /* fall through */
+    }
+  }
+  return [];
+}
+
+export async function saveBento(env: Env, boxes: BentoBox[]): Promise<void> {
+  await setRawSetting(env, "bento", JSON.stringify(boxes.slice(0, 5).map(normBento)));
+}
+
+export async function getBentoImageIdsInUse(env: Env): Promise<Set<number>> {
+  const boxes = await getBento(env);
+  const s = new Set<number>();
+  for (const b of boxes) if (b.imageId) s.add(b.imageId);
+  return s;
+}
+
+/* ------------------------------------------------------------------ *
  * Homepage content — announcement bar + hero banner (admin-editable).
  * Applied to the static pages on the next Publish/rebuild.
  * ------------------------------------------------------------------ */

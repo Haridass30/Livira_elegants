@@ -7,8 +7,10 @@ import { site } from "../config";
 import { getSiteContent } from "../lib/siteContent";
 import heroImg from "../assets/hero.jpg";
 
-const { slides } = await getSiteContent();
+const { slides, bento } = await getSiteContent();
 const multiple = slides.length > 1;
+const hasBento = bento.some((b) => b.imageId);
+const bentoSig = JSON.stringify(bento.map((b) => [b.imageId ?? 0, b.link, b.caption]));
 
 const all = await getCollection("products");
 // Shop-by tiles use top-level "main" categories (managed from /admin/collections):
@@ -279,6 +281,41 @@ const jsonLd = {
           Explore →
         </span>
       </a>
+    </div>
+  </section>
+
+  <!-- Bento — admin-uploaded image tiles -->
+  <section
+    id="bento-section"
+    data-bento-sig={bentoSig}
+    class:list={["container-page py-12 md:py-16", hasBento ? "" : "hidden"]}
+  >
+    <div id="bento-grid" class="grid grid-cols-2 gap-3 md:h-[520px] md:grid-cols-4 md:grid-rows-2">
+      {
+        [0, 1, 2, 3, 4].map((i) => {
+          const b = bento[i] ?? { imageId: null, link: "", caption: "" };
+          const large = i === 0;
+          const cls = `bento-cell group relative block overflow-hidden rounded-[3px] ${large ? "col-span-2 aspect-square md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-square md:aspect-auto"} ${b.imageId ? "card-lux" : "surface"}`;
+          const Tag = b.imageId && b.link ? "a" : "div";
+          return (
+            <Tag href={b.imageId && b.link ? b.link : undefined} class={cls}>
+              {b.imageId && (
+                <img
+                  src={`/api/images/${b.imageId}`}
+                  alt={b.caption || ""}
+                  loading="lazy"
+                  class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
+                />
+              )}
+              {b.imageId && b.caption && (
+                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150b10]/70 to-transparent p-4">
+                  <span class="font-serif text-lg text-ivory">{b.caption}</span>
+                </div>
+              )}
+            </Tag>
+          );
+        })
+      }
     </div>
   </section>
 
@@ -617,6 +654,19 @@ const jsonLd = {
   function trendItemHTML(p, i, mainOf) {
     return `<div class="trend-item" data-main="${esc(mainOf(p.category))}">${cardHTML(p, i < 4)}</div>`;
   }
+  function bentoCellHTML(b, i) {
+    const large = i === 0;
+    const cls = `bento-cell group relative block overflow-hidden rounded-[3px] ${large ? "col-span-2 aspect-square md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-square md:aspect-auto"} ${b.imageId ? "card-lux" : "surface"}`;
+    const img = b.imageId
+      ? `<img src="/api/images/${b.imageId}" alt="${esc(b.caption || "")}" loading="lazy" class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105">`
+      : "";
+    const cap = b.imageId && b.caption
+      ? `<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150b10]/70 to-transparent p-4"><span class="font-serif text-lg text-ivory">${esc(b.caption)}</span></div>`
+      : "";
+    const tag = b.imageId && b.link ? "a" : "div";
+    const href = b.imageId && b.link ? ` href="${esc(b.link)}"` : "";
+    return `<${tag}${href} class="${cls}">${img}${cap}</${tag}>`;
+  }
 
   async function hydrate() {
     try {
@@ -702,6 +752,23 @@ const jsonLd = {
           naGrid.innerHTML = na.map((p, i) => cardHTML(p, i < 4)).join("");
           naGrid.dataset.naSig = naSig;
           document.getElementById("newarrivals-section")?.classList.toggle("hidden", na.length === 0);
+        }
+      }
+
+      // Bento tiles.
+      const bentoSec = document.getElementById("bento-section");
+      const bentoGrid = document.getElementById("bento-grid");
+      if (bentoSec && bentoGrid) {
+        const boxes = (Array.isArray(content.bento) ? content.bento : []).slice(0, 5).map((b) => ({
+          imageId: Number.isInteger(Number(b?.imageId)) && Number(b?.imageId) > 0 ? Number(b.imageId) : null,
+          link: typeof b?.link === "string" ? b.link : "",
+          caption: typeof b?.caption === "string" ? b.caption : "",
+        }));
+        const bSig = JSON.stringify(boxes.map((b) => [b.imageId ?? 0, b.link, b.caption]));
+        if (bSig !== (bentoSec.dataset.bentoSig ?? "")) {
+          bentoGrid.innerHTML = [0, 1, 2, 3, 4].map((i) => bentoCellHTML(boxes[i] ?? { imageId: null, link: "", caption: "" }, i)).join("");
+          bentoSec.dataset.bentoSig = bSig;
+          bentoSec.classList.toggle("hidden", !boxes.some((b) => b.imageId));
         }
       }
     } catch (_) {
