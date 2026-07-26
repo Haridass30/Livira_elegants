@@ -17,8 +17,8 @@ export const site = {
     "Hand-finished fine jewellery, made in small batches. Hallmarked metals, ethically sourced stones, and pieces designed to be worn every day and kept for a lifetime.",
   /** Support / WhatsApp number in full international form (India +91). */
   whatsapp: "+918778144475",
-  /** TODO(owner): customer-facing support email. */
-  supportEmail: "hello@livira.example.com",
+  /** Customer-facing support email. */
+  supportEmail: "liviraelegants@gmail.com",
   /** Instagram handle (without @), used in footer & contact. Set "" to hide. */
   instagram: "livira.elegants",
 

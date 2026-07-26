@@ -86,7 +86,7 @@ const jsonLd = {
       <a href={`/shop?category=${p.category}`} class="link-underline">{p.category}</a>
     </nav>
 
-    <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
+    <div class="grid gap-8 lg:grid-cols-2 lg:gap-16">
       <Gallery images={p.images} name={p.name} />
 
       <div class="lg:pt-4">
@@ -194,14 +194,14 @@ const jsonLd = {
   <!-- Related -->
   {
     fill.length > 0 && (
-      <section class="container-page py-20">
-        <div class="mb-12 text-center">
+      <section class="container-page py-14 md:py-20">
+        <div class="mb-10 text-center md:mb-12">
           <p class="eyebrow flex items-center justify-center gap-2">
             <span class="gem-mark">◆</span> Pairs beautifully
           </p>
           <h2 class="mt-2 font-serif text-2xl md:text-3xl">You may also like</h2>
         </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-12 md:grid-cols-4 md:gap-x-8">
           {fill.map((e) => (
             <ProductCard entry={e} />
           ))}
