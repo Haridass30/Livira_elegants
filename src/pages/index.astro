@@ -53,6 +53,28 @@ const values = [
   },
 ];
 
+// Signatures of the data this page was built from. The client compares them to
+// live data and only re-renders the banner / catalogue sections that changed.
+const bannerSig = JSON.stringify(
+  slides.map((s) => [
+    s.heading, s.subtext, s.buttonLabel, s.buttonLink,
+    s.secondaryLabel, s.secondaryLink,
+    s.image ? String(s.image.url).split("/").pop() : "",
+  ]),
+);
+const catalogSig = JSON.stringify({
+  p: [...all]
+    .map((e) => e.data)
+    .sort((a, b) => a.slug.localeCompare(b.slug))
+    .map((p) => [
+      p.slug, p.price, p.inStock ? 1 : 0, p.featured ? 1 : 0, p.category,
+      (p.images ?? []).map((i) => String(i.url).split("/").pop()).join(","),
+    ]),
+  c: [...cats]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((c) => [c.name, c.parent ?? "", c.position]),
+});
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -70,6 +92,8 @@ const jsonLd = {
 >
   <!-- Hero banner slider (one or more admin-editable banners) -->
   <section
+    id="hero"
+    data-banner-sig={bannerSig}
     class="hero-slider relative h-[88svh] min-h-[560px] overflow-hidden"
     aria-roledescription="carousel"
     aria-label="Featured banners"
@@ -184,7 +208,7 @@ const jsonLd = {
         >View all</a
       >
     </div>
-    <div class="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-3 md:gap-x-8">
+    <div id="featured-grid" data-catalog-sig={catalogSig} class="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-3 md:gap-x-8">
       {featuredGrid.map((entry, i) => <ProductCard entry={entry} priority={i < 3} />)}
     </div>
     <div class="mt-10 text-center md:hidden">
@@ -201,7 +225,7 @@ const jsonLd = {
       <h2 class="mt-3 font-serif text-3xl md:text-4xl">Collections</h2>
       <div class="divider-gem mt-5" aria-hidden="true">◆</div>
     </div>
-    <div class="cat-grid">
+    <div class="cat-grid" id="cat-grid">
       {
         categories.map((cat) => (
           <a
@@ -368,52 +392,186 @@ const jsonLd = {
 </style>
 
 <script>
-  // Auto-advancing banner carousel. Falls back to a static first slide when
-  // there is only one banner or the visitor prefers reduced motion.
-  const root = document.querySelector<HTMLElement>(".hero-slider");
-  if (root) {
-    const track = root.querySelector<HTMLElement>(".hero-track");
-    const slides = [...root.querySelectorAll<HTMLElement>(".hero-slide")];
-    const dots = [...root.querySelectorAll<HTMLElement>(".hero-dot")];
+  // Homepage: auto-advancing banner carousel + live refresh of the banner,
+  // featured products and category tiles — so admin edits appear on refresh
+  // without a full site rebuild. The static render is the instant fallback.
+  const fmtINR = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  });
+  const esc = (s) =>
+    String(s ?? "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
+
+  // Idempotent carousel init — safe to re-run after the hero is re-rendered.
+  // The timer lives in module scope so a re-init never leaves an old one firing,
+  // and handlers use property assignment (`onclick`) so they never stack up.
+  let carouselTimer = null;
+  function initCarousel() {
+    const root = document.querySelector(".hero-slider");
+    if (!root) return;
+    const track = root.querySelector(".hero-track");
+    const slides = [...root.querySelectorAll(".hero-slide")];
+    const dots = [...root.querySelectorAll(".hero-dot")];
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let i = 0;
-    let timer: ReturnType<typeof setInterval> | undefined;
-
-    const show = (n: number) => {
+    const show = (n) => {
       i = (n + slides.length) % slides.length;
       if (track) track.style.transform = `translateX(-${i * 100}%)`;
       slides.forEach((s, k) => s.classList.toggle("is-active", k === i));
       dots.forEach((d, k) => d.classList.toggle("is-active", k === i));
     };
-
     const stop = () => {
-      if (timer) clearInterval(timer);
-      timer = undefined;
+      if (carouselTimer) {
+        clearInterval(carouselTimer);
+        carouselTimer = null;
+      }
     };
     const start = () => {
       if (reduce || slides.length < 2) return;
       stop();
-      timer = setInterval(() => show(i + 1), 6000);
+      carouselTimer = setInterval(() => show(i + 1), 6000);
     };
-
-    root.querySelector(".hero-next")?.addEventListener("click", () => {
-      show(i + 1);
-      start();
-    });
-    root.querySelector(".hero-prev")?.addEventListener("click", () => {
-      show(i - 1);
-      start();
-    });
-    dots.forEach((d, k) =>
-      d.addEventListener("click", () => {
-        show(k);
-        start();
-      }),
-    );
-    root.addEventListener("mouseenter", stop);
-    root.addEventListener("mouseleave", start);
-
+    const next = root.querySelector(".hero-next");
+    const prev = root.querySelector(".hero-prev");
+    if (next) next.onclick = () => { show(i + 1); start(); };
+    if (prev) prev.onclick = () => { show(i - 1); start(); };
+    dots.forEach((d, k) => { d.onclick = () => { show(k); start(); }; });
+    root.onmouseenter = stop;
+    root.onmouseleave = start;
     show(0);
     start();
   }
+  initCarousel();
+
+  // The bundled default hero image (used for slides with no uploaded photo).
+  const firstImg = document.querySelector(".hero-slide img");
+  const defaultHeroSrc = firstImg ? firstImg.getAttribute("src") : "";
+
+  /* ---------- renderers (mirror the Astro markup above) ---------- */
+  function heroSlideHTML(s, i, total) {
+    const hasImg = s.imageId && s.imageWidth && s.imageHeight;
+    const src = hasImg ? `/api/images/${s.imageId}` : defaultHeroSrc;
+    const w = hasImg ? s.imageWidth : 2400;
+    const h = hasImg ? s.imageHeight : 1600;
+    const img = src
+      ? `<img src="${esc(src)}" alt="${esc(s.heading)}" width="${w}" height="${h}" loading="${i === 0 ? "eager" : "lazy"}" fetchpriority="${i === 0 ? "high" : "auto"}" class="absolute inset-0 h-full w-full object-cover">`
+      : "";
+    const sub = s.subtext ? `<p class="mt-5 max-w-md text-ivory/85">${esc(s.subtext)}</p>` : "";
+    const secondary = s.secondaryLabel
+      ? `<a href="${esc(s.secondaryLink)}" class="btn btn-outline">${esc(s.secondaryLabel)}</a>`
+      : "";
+    return `<div class="hero-slide relative flex h-full w-full flex-shrink-0 items-end" aria-roledescription="slide" aria-label="Banner ${i + 1} of ${total}">${img}<div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/30 to-[#150b10]/50"></div><div class="container-page relative pb-16 md:pb-24"><div class="hero-copy"><p class="eyebrow flex items-center gap-2"><span class="gem-mark">◆</span> Fine jewellery · India</p><h1 class="mt-4 max-w-2xl font-serif text-4xl leading-[1.08] md:text-6xl"><span class="text-metallic is-animated">${esc(s.heading)}</span></h1>${sub}<div class="mt-8 flex flex-wrap gap-4"><a href="${esc(s.buttonLink)}" class="btn btn-primary">${esc(s.buttonLabel)}</a>${secondary}</div></div></div></div>`;
+  }
+  function heroHTML(slides) {
+    const total = slides.length;
+    const track = `<div class="hero-track flex h-full w-full" id="hero-track">${slides.map((s, i) => heroSlideHTML(s, i, total)).join("")}</div>`;
+    const frame = `<div class="pointer-events-none absolute inset-3 z-[5] border hairline md:inset-6"></div>`;
+    let controls = "";
+    if (total > 1) {
+      const dots = slides.map((_, i) => `<button type="button" class="hero-dot" data-dot="${i}" aria-label="Go to banner ${i + 1}"></button>`).join("");
+      controls = `<button type="button" class="hero-arrow hero-prev" aria-label="Previous banner">‹</button><button type="button" class="hero-arrow hero-next" aria-label="Next banner">›</button><div class="hero-dots" aria-label="Choose banner">${dots}</div>`;
+    }
+    return track + frame + controls;
+  }
+
+  function cardHTML(p, priority) {
+    const img = p.images && p.images[0];
+    const hov = p.images && p.images[1];
+    const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
+    const disc = onSale ? Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100) : 0;
+    const base = img
+      ? `<img src="/api/images/${img.id}" width="${img.width}" height="${img.height}" alt="${esc(p.name)}" loading="${priority ? "eager" : "lazy"}" class="h-full w-full object-cover transition-all duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05]${hov ? " group-hover:opacity-0" : ""}">`
+      : "";
+    const hover = hov
+      ? `<img src="/api/images/${hov.id}" width="${hov.width}" height="${hov.height}" alt="" aria-hidden="true" loading="lazy" class="absolute inset-0 h-full w-full scale-[1.05] object-cover opacity-0 transition-opacity duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100">`
+      : "";
+    const badge =
+      onSale && p.inStock
+        ? `<span class="pill absolute left-3 top-3">−${disc}%</span>`
+        : !p.inStock
+          ? `<span class="pill absolute left-3 top-3 !text-charcoal/80">Sold out</span>`
+          : "";
+    const price =
+      `<span class="text-champagne">${fmtINR.format(p.price)}</span>` +
+      (onSale ? `<span class="text-charcoal/40 line-through">${fmtINR.format(p.compareAtPrice)}</span>` : "");
+    return `<a href="/product/${encodeURIComponent(p.slug)}" class="group block" aria-label="${esc(p.name)}, ${fmtINR.format(p.price)}"><div class="card-lux relative overflow-hidden rounded-[3px]" style="aspect-ratio:4 / 5;">${base}${hover}${badge}<div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-[#150b10]/75 to-transparent pb-4 pt-10 opacity-0 transition-opacity duration-500 group-hover:opacity-100"><span class="text-[11px] uppercase tracking-[0.22em] text-champagne-soft">View piece →</span></div></div><div class="pt-4 text-center"><p class="text-[10px] uppercase tracking-[0.2em] text-champagne/70">${esc(p.category)}</p><h3 class="mt-1.5 font-serif text-lg leading-snug transition-colors group-hover:text-ink">${esc(p.name)}</h3><p class="mt-1.5 flex items-baseline justify-center gap-2 text-sm">${price}</p></div></a>`;
+  }
+
+  const tileClass = "card-lux group flex aspect-square flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center";
+  function tileHTML(name) {
+    return `<a href="/shop?category=${encodeURIComponent(name)}" class="${tileClass}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-xl leading-tight tracking-wide md:text-2xl">${esc(name)}</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
+  }
+  const antiTarnishTile = `<a href="/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}" class="${tileClass}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-lg leading-tight tracking-wide md:text-xl">Anti-Tarnish<br>Jewels</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
+
+  function presentMains(products, cats) {
+    const leaves = new Set(products.map((p) => p.category));
+    const mains = cats
+      .filter((c) => !c.parent)
+      .sort((a, b) => a.position - b.position)
+      .filter((m) => leaves.has(m.name) || cats.some((s) => s.parent === m.name && leaves.has(s.name)))
+      .map((m) => m.name);
+    return mains.length ? mains : [...leaves].sort();
+  }
+
+  /* ---------- live refresh ---------- */
+  async function hydrate() {
+    try {
+      const [cRes, pRes, colRes] = await Promise.all([
+        fetch("/api/content", { headers: { accept: "application/json" } }),
+        fetch("/api/products", { headers: { accept: "application/json" } }),
+        fetch("/api/collections", { headers: { accept: "application/json" } }),
+      ]);
+      if (!cRes.ok || !pRes.ok || !colRes.ok) return;
+      const content = await cRes.json();
+      const products = await pRes.json();
+      const cats = await colRes.json();
+      const slides =
+        Array.isArray(content.slides) && content.slides.length
+          ? content.slides
+          : content.hero
+            ? [content.hero]
+            : [];
+      if (!Array.isArray(products) || !Array.isArray(cats)) return;
+
+      // Banner — re-render only when the banner data changed.
+      const hero = document.getElementById("hero");
+      if (hero && slides.length) {
+        const bSig = JSON.stringify(
+          slides.map((s) => [
+            s.heading, s.subtext, s.buttonLabel, s.buttonLink,
+            s.secondaryLabel, s.secondaryLink, s.imageId ? String(s.imageId) : "",
+          ]),
+        );
+        if (bSig !== (hero.dataset.bannerSig ?? "")) {
+          hero.innerHTML = heroHTML(slides);
+          hero.dataset.bannerSig = bSig;
+          initCarousel();
+        }
+      }
+
+      // Featured + category tiles — re-render only when the catalogue changed.
+      const featEl = document.getElementById("featured-grid");
+      const cSig = JSON.stringify({
+        p: [...products]
+          .sort((a, b) => a.slug.localeCompare(b.slug))
+          .map((p) => [p.slug, p.price, p.inStock ? 1 : 0, p.featured ? 1 : 0, p.category, (p.images ?? []).map((i) => String(i.id)).join(",")]),
+        c: [...cats].sort((a, b) => a.name.localeCompare(b.name)).map((c) => [c.name, c.parent ?? "", c.position]),
+      });
+      if (featEl && cSig !== (featEl.dataset.catalogSig ?? "")) {
+        const featured = products.filter((p) => p.featured).slice(0, 3);
+        const grid = featured.length >= 3 ? featured : [...featured, ...products].slice(0, 3);
+        featEl.innerHTML = grid.map((p, i) => cardHTML(p, i < 3)).join("");
+        featEl.dataset.catalogSig = cSig;
+
+        const tiles = document.getElementById("cat-grid");
+        if (tiles) tiles.innerHTML = presentMains(products, cats).map(tileHTML).join("") + antiTarnishTile;
+      }
+    } catch (_) {
+      /* Network/API hiccup — keep the server-rendered homepage. */
+    }
+  }
+  hydrate();
 </script>
