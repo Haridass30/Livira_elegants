@@ -138,14 +138,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       <div>
         <h1>Homepage banners</h1>
         <p class="muted" style="margin:4px 0 0;max-width:560px">Add one or more banners for the top of the homepage. With more than one they
-          slide automatically. Click a banner to expand it. Save, then <strong>Publish site</strong> to go live (~2 min).</p>
+          slide automatically (and visitors can swipe on mobile). Click a banner to expand it. Just <strong>Save</strong> —
+          the homepage shows the new banner the next time it's opened or refreshed. (Publish site is optional.)</p>
       </div>
       <form method="post" action="/admin/publish" style="margin:0">
         <button type="submit" class="publish-btn">⟳ Publish site</button>
       </form>
     </div>
 
-    ${saved ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a;border:1px solid #bfe0c6">Saved. Now press <strong>Publish site</strong> to make it live.</div>` : ""}
+    ${saved ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a;border:1px solid #bfe0c6">Saved. Open or refresh the homepage to see it — no publish needed.</div>` : ""}
 
     <form method="post" action="/admin/content" id="content-form" style="margin-top:20px">
       <input type="hidden" name="slides_json" id="slides_json"/>

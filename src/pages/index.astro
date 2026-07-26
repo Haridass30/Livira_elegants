@@ -94,7 +94,7 @@ const jsonLd = {
   <section
     id="hero"
     data-banner-sig={bannerSig}
-    class="hero-slider relative h-[88svh] min-h-[560px] overflow-hidden"
+    class="hero-slider relative h-[66svh] min-h-[400px] overflow-hidden sm:h-[78svh] sm:min-h-[500px] md:h-[88svh] md:min-h-[560px]"
     aria-roledescription="carousel"
     aria-label="Featured banners"
     data-has-hero
@@ -441,6 +441,19 @@ const jsonLd = {
     dots.forEach((d, k) => { d.onclick = () => { show(k); start(); }; });
     root.onmouseenter = stop;
     root.onmouseleave = start;
+
+    // Touch swipe (mobile) — drag left/right to change banner.
+    let startX = 0, dx = 0, dragging = false;
+    root.ontouchstart = (e) => { startX = e.touches[0].clientX; dx = 0; dragging = true; stop(); };
+    root.ontouchmove = (e) => { if (dragging) dx = e.touches[0].clientX - startX; };
+    root.ontouchend = () => {
+      if (!dragging) return;
+      dragging = false;
+      if (Math.abs(dx) > 40) show(dx < 0 ? i + 1 : i - 1);
+      dx = 0;
+      start();
+    };
+
     show(0);
     start();
   }

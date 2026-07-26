@@ -79,12 +79,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       </div>
     </div>
     ${msg ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a">${esc(msg)}</div>` : ""}
-    <div class="err" style="background:#f3ecd7;color:#8a6d1e">
-      Changes here apply to <strong>checkout instantly</strong>. The public shop pages are
-      rebuilt when you press <strong>Publish site</strong> (below) — allow ~2 minutes.
+    <div class="err" style="background:#e4f0e6;color:#2f6b3a;border:1px solid #bfe0c6">
+      Your edits are saved instantly. The <strong>shop</strong> and <strong>home</strong> pages
+      show them automatically the next time a visitor loads or refreshes the page — no publish needed.
+      <br><span class="muted" style="font-size:12px">Optional: <strong>Publish site</strong> also bakes changes into the
+      static pages (slightly better for Google &amp; first load). It needs a one-time Deploy Hook set in
+      <a href="/admin/settings">Settings</a>; without it this button just shows a reminder.</span>
     </div>
     <form method="post" action="/admin/publish" style="margin:14px 0">
-      <button type="submit" style="background:var(--gold)">⟳ Publish site (update shop pages)</button>
+      <button type="submit" style="background:var(--gold)">⟳ Publish site (optional)</button>
     </form>
     ${tabs}
     <table>

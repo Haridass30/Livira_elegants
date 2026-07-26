@@ -133,7 +133,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       </label>
       <button type="submit">Add</button>
     </form>
-    <p class="muted" style="margin-top:14px;font-size:13px">After changing collections, press <strong>Publish site</strong> on the Products page so the shop menus update (takes ~2 minutes).</p>`;
+    <p class="muted" style="margin-top:14px;font-size:13px">Collection changes show on the shop automatically the next time it's opened or refreshed — no publish needed.</p>`;
 
   return htmlResponse(adminPage({ title: "Collections", body }));
 };
