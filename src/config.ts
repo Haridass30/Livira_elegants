@@ -15,12 +15,12 @@ export const site = {
   /** Longer brand statement for the homepage hero / about page. */
   statement:
     "Hand-finished fine jewellery, made in small batches. Hallmarked metals, ethically sourced stones, and pieces designed to be worn every day and kept for a lifetime.",
-  /** TODO(owner): your support / WhatsApp number in full international form. */
-  whatsapp: "+919000000000",
+  /** Support / WhatsApp number in full international form (India +91). */
+  whatsapp: "+918778144475",
   /** TODO(owner): customer-facing support email. */
   supportEmail: "hello@livira.example.com",
-  /** TODO(owner): instagram handle (without @), used in footer. Set "" to hide. */
-  instagram: "livira.jewellery",
+  /** Instagram handle (without @), used in footer & contact. Set "" to hide. */
+  instagram: "livira.elegants",
 
   /**
    * Top announcement bar. Set to [] to hide it. Multiple messages rotate.

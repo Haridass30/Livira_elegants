@@ -14,35 +14,52 @@ const CATALOG_API =
   process.env.CATALOG_API ??
   "https://livira-store.pages.dev";
 
+/**
+ * Fetch JSON with a few retries. If the API is reachable and healthy we use its
+ * data (even an empty list — that's a legitimately empty store). If it can't be
+ * reached after retrying, we THROW: the build fails, and Cloudflare keeps the
+ * previous good deployment live instead of publishing an empty shop.
+ */
+async function fetchJson<T>(url: string, label: string, tries = 4): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      if (res.ok) return (await res.json()) as T;
+      lastErr = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (i < tries - 1)
+      await new Promise((r) => setTimeout(r, 500 * (i + 1))); // 0.5s, 1s, 1.5s
+  }
+  throw new Error(
+    `[${label}] Could not load ${url} after ${tries} attempts (${lastErr}). ` +
+      `Aborting the build so the current live site is kept instead of publishing an empty page. ` +
+      `Re-run "Publish site" once the store API is healthy.`,
+  );
+}
+
 const products = defineCollection({
   loader: async () => {
-    try {
-      const res = await fetch(`${CATALOG_API}/api/products`, {
-        headers: { accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`API ${res.status}`);
-      const items = (await res.json()) as Array<{
+    const items = await fetchJson<
+      Array<{
         slug: string;
         images: { id: number; width: number; height: number }[];
         [k: string]: unknown;
-      }>;
-      console.log(`[products] loaded ${items.length} products from ${CATALOG_API}`);
-      return items.map(({ slug, images, ...rest }) => ({
-        id: slug,
-        slug,
-        ...rest,
-        images: images.map((i) => ({
-          url: `${CATALOG_API}/api/images/${i.id}`,
-          width: i.width,
-          height: i.height,
-        })),
-      }));
-    } catch (err) {
-      console.warn(
-        `[products] WARNING: could not load catalogue from ${CATALOG_API} (${err}). Building with an empty catalogue.`,
-      );
-      return [];
-    }
+      }>
+    >(`${CATALOG_API}/api/products`, "products");
+    console.log(`[products] loaded ${items.length} products from ${CATALOG_API}`);
+    return items.map(({ slug, images, ...rest }) => ({
+      id: slug,
+      slug,
+      ...rest,
+      images: images.map((i) => ({
+        url: `${CATALOG_API}/api/images/${i.id}`,
+        width: i.width,
+        height: i.height,
+      })),
+    }));
   },
   schema: z.object({
     slug: z.string(),
@@ -80,20 +97,12 @@ const products = defineCollection({
  */
 const categories = defineCollection({
   loader: async () => {
-    try {
-      const res = await fetch(`${CATALOG_API}/api/collections`, {
-        headers: { accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`API ${res.status}`);
-      const items = (await res.json()) as Array<{ name: string; [k: string]: unknown }>;
-      console.log(`[categories] loaded ${items.length} categories from ${CATALOG_API}`);
-      return items.map((c) => ({ id: c.name, ...c }));
-    } catch (err) {
-      console.warn(
-        `[categories] WARNING: could not load categories from ${CATALOG_API} (${err}). Building with flat filters.`,
-      );
-      return [];
-    }
+    const items = await fetchJson<Array<{ name: string; [k: string]: unknown }>>(
+      `${CATALOG_API}/api/collections`,
+      "categories",
+    );
+    console.log(`[categories] loaded ${items.length} categories from ${CATALOG_API}`);
+    return items.map((c) => ({ id: c.name, ...c }));
   },
   schema: z.object({
     name: z.string(),

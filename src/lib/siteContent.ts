@@ -91,37 +91,51 @@ export function getSiteContent(): Promise<ResolvedContent> {
   return cached;
 }
 
-async function load(): Promise<ResolvedContent> {
-  try {
-    const res = await fetch(`${API}/api/content`, {
-      headers: { accept: "application/json" },
-    });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const d = (await res.json()) as {
-      announcements?: string[];
-      hero?: RawSlide;
-      slides?: RawSlide[];
-    };
+/**
+ * Fetch the homepage content with retries. A reachable API wins (even if it
+ * returns partial data — we fill gaps from defaults). If it can't be reached
+ * after retrying we THROW so the build fails and Cloudflare keeps the current
+ * live site, rather than silently reverting the banner/announcements to defaults.
+ */
+async function load(tries = 4): Promise<ResolvedContent> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(`${API}/api/content`, {
+        headers: { accept: "application/json" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = (await res.json()) as {
+        announcements?: string[];
+        hero?: RawSlide;
+        slides?: RawSlide[];
+      };
 
-    const rawSlides =
-      Array.isArray(d.slides) && d.slides.length
-        ? d.slides
-        : d.hero
-          ? [d.hero]
-          : [];
-    const slides = rawSlides.length ? rawSlides.map(resolveSlide) : DEFAULTS.slides;
+      const rawSlides =
+        Array.isArray(d.slides) && d.slides.length
+          ? d.slides
+          : d.hero
+            ? [d.hero]
+            : [];
+      const slides = rawSlides.length ? rawSlides.map(resolveSlide) : DEFAULTS.slides;
 
-    console.log(`[content] loaded homepage content from ${API} (${slides.length} banner slide(s))`);
-    return {
-      announcements:
-        Array.isArray(d.announcements) && d.announcements.length
-          ? d.announcements
-          : DEFAULTS.announcements,
-      hero: slides[0],
-      slides,
-    };
-  } catch (err) {
-    console.warn(`[content] using defaults (${(err as Error).message})`);
-    return DEFAULTS;
+      console.log(`[content] loaded homepage content from ${API} (${slides.length} banner slide(s))`);
+      return {
+        announcements:
+          Array.isArray(d.announcements) && d.announcements.length
+            ? d.announcements
+            : DEFAULTS.announcements,
+        hero: slides[0],
+        slides,
+      };
+    } catch (err) {
+      lastErr = err;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    }
   }
+  throw new Error(
+    `[content] Could not load ${API}/api/content after ${tries} attempts (${lastErr}). ` +
+      `Aborting the build so the live site's banner is kept instead of reverting to defaults. ` +
+      `Re-run "Publish site" once the store API is healthy.`,
+  );
 }
