@@ -115,40 +115,6 @@ export async function getDeployHookUrl(env: Env): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ *
- * Trending products — an admin-curated set of product slugs shown in a
- * "Trending" section on the homepage, with an editable heading.
- * ------------------------------------------------------------------ */
-
-export interface TrendingConfig {
-  title: string;
-  slugs: string[];
-}
-
-export async function getTrending(env: Env): Promise<TrendingConfig> {
-  const raw = await getRawSetting(env, "trending");
-  if (raw) {
-    try {
-      const p = JSON.parse(raw) as Partial<TrendingConfig>;
-      return {
-        title: typeof p.title === "string" && p.title.trim() ? p.title : "Trending Now",
-        slugs: Array.isArray(p.slugs) ? p.slugs.filter((s) => typeof s === "string") : [],
-      };
-    } catch {
-      /* fall through */
-    }
-  }
-  return { title: "Trending Now", slugs: [] };
-}
-
-export async function saveTrending(env: Env, cfg: TrendingConfig): Promise<void> {
-  await setRawSetting(
-    env,
-    "trending",
-    JSON.stringify({ title: cfg.title.trim() || "Trending Now", slugs: cfg.slugs }),
-  );
-}
-
-/* ------------------------------------------------------------------ *
  * Homepage content — announcement bar + hero banner (admin-editable).
  * Applied to the static pages on the next Publish/rebuild.
  * ------------------------------------------------------------------ */

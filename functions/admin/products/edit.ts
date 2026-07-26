@@ -164,7 +164,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         <div class="field"><label>Stock quantity (blank = don't track)</label>
           <input name="stock_qty" type="number" min="0" value="${esc(p?.stock_qty ?? "")}" placeholder="leave blank for unlimited"/></div>
         <div class="field"><label>Tags (comma separated)</label>
-          <input name="tags" value="${esc(p?.tags ?? "")}" placeholder="gift, everyday"/></div>
+          <input name="tags" value="${esc(p?.tags ?? "")}" placeholder="gift, everyday, trending, new arrivals"/>
+          <span class="hint">Add <strong>trending</strong> to feature it in the homepage Trending row, or <strong>new arrivals</strong> for the New Arrivals row (case &amp; spacing don't matter).</span></div>
       </div>
 
       <div style="display:flex;gap:22px;margin:12px 0">

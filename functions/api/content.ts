@@ -8,10 +8,10 @@
 /// <reference types="@cloudflare/workers-types" />
 import type { Env } from "../_lib/env";
 import { json } from "../_lib/http";
-import { getSiteContent, getTrending } from "../_lib/settings";
+import { getSiteContent } from "../_lib/settings";
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
-  const [content, trending] = await Promise.all([getSiteContent(env), getTrending(env)]);
+  const content = await getSiteContent(env);
 
   // Attach each banner image's dimensions (needed for no-CLS rendering).
   const ids = [...new Set(content.slides.map((s) => s.imageId).filter((v): v is number => !!v))];
@@ -43,7 +43,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       // `hero` kept for backward compatibility; `slides` is the carousel.
       hero: slides[0],
       slides,
-      trending,
     },
     200,
     { "Cache-Control": "no-store" },

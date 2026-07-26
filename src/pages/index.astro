@@ -7,7 +7,7 @@ import { site } from "../config";
 import { getSiteContent } from "../lib/siteContent";
 import heroImg from "../assets/hero.jpg";
 
-const { slides, trending } = await getSiteContent();
+const { slides } = await getSiteContent();
 const multiple = slides.length > 1;
 
 const all = await getCollection("products");
@@ -36,13 +36,14 @@ const mainOfHome = (leaf: string) => {
   return c ? (c.parent ?? c.name) : leaf;
 };
 
-// Trending = admin-curated slugs (falls back to featured products if unset).
-const trendingBase = trending.slugs
-  .map((s) => all.find((e) => e.id === s))
-  .filter((e): e is (typeof all)[number] => Boolean(e));
-const trendingProducts = (
-  trendingBase.length ? trendingBase : all.filter((e) => e.data.featured)
-).slice(0, 12);
+// "Trending" and "New Arrivals" are driven by product tags, matched case- and
+// space-insensitively (so "New Arrivals" / "new arrivals" / "newarrivals" match).
+const normTag = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+const hasTag = (e: (typeof all)[number], tag: string) =>
+  (e.data.tags ?? []).some((t) => normTag(t) === normTag(tag));
+
+const trendingProducts = all.filter((e) => hasTag(e, "trending")).slice(0, 12);
+const newArrivals = all.filter((e) => hasTag(e, "new arrivals")).slice(0, 12);
 const trendingCats = [...new Set(trendingProducts.map((e) => mainOfHome(e.data.category)))];
 const tcatClass =
   "tcat border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory";
@@ -92,13 +93,15 @@ const tilesSig = JSON.stringify({
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((c) => [c.name, c.parent ?? "", c.position]),
 });
-const trendingSig = JSON.stringify({
-  title: trending.title,
-  t: trendingProducts.map((e) => [
-    e.id, e.data.price, e.data.inStock ? 1 : 0, e.data.category,
-    (e.data.images ?? []).map((i) => String(i.url).split("/").pop()).join(","),
-  ]),
-});
+const prodSig = (list: typeof all) =>
+  JSON.stringify(
+    list.map((e) => [
+      e.id, e.data.price, e.data.inStock ? 1 : 0, e.data.category,
+      (e.data.images ?? []).map((i) => String(i.url).split("/").pop()).join(","),
+    ]),
+  );
+const trendingSig = prodSig(trendingProducts);
+const newArrivalsSig = prodSig(newArrivals);
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -208,6 +211,31 @@ const jsonLd = {
     }
   </section>
 
+  <!-- New Arrivals — products tagged "new arrivals" (below the banner) -->
+  <section
+    id="newarrivals-section"
+    class:list={["container-page py-12 md:py-16", newArrivals.length ? "" : "hidden"]}
+  >
+    <div class="mb-8 flex items-end justify-between">
+      <div>
+        <p class="eyebrow flex items-center gap-2">
+          <span class="gem-mark">◆</span> Just in
+        </p>
+        <h2 class="mt-2 font-serif text-3xl md:text-4xl">New Arrivals</h2>
+      </div>
+      <a href="/shop" class="link-underline hidden text-sm uppercase tracking-[0.14em] md:inline">
+        View all →
+      </a>
+    </div>
+    <div
+      id="newarrivals-grid"
+      data-na-sig={newArrivalsSig}
+      class="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-12 md:grid-cols-4 md:gap-x-8"
+    >
+      {newArrivals.map((entry, i) => <ProductCard entry={entry} priority={i < 4} />)}
+    </div>
+  </section>
+
   <!-- Shop-by collections — horizontal scroll of top-level categories -->
   <section class="py-12 md:py-16">
     <div class="container-page mb-6 flex items-end justify-between gap-4">
@@ -224,7 +252,7 @@ const jsonLd = {
         View all →
       </a>
     </div>
-    <div id="cat-grid" class="cat-scroll flex snap-x gap-4 overflow-x-auto px-5 pb-3 md:px-10">
+    <div id="cat-grid" data-tiles-sig={tilesSig} class="cat-scroll flex snap-x gap-4 overflow-x-auto px-5 pb-3 md:px-10">
       {
         categories.map((cat) => (
           <a
@@ -265,13 +293,16 @@ const jsonLd = {
     <div class="divider-gem mt-10" aria-hidden="true">◆</div>
   </section>
 
-  <!-- Trending — admin-curated products, filterable by collection -->
-  <section id="trending-section" class="container-page py-6 md:py-10" data-tiles-sig={tilesSig}>
+  <!-- Trending — products tagged "trending", filterable by collection -->
+  <section
+    id="trending-section"
+    class:list={["container-page py-6 md:py-10", trendingProducts.length ? "" : "hidden"]}
+  >
     <div class="mb-8 text-center">
       <p class="eyebrow flex items-center justify-center gap-2">
         <span class="gem-mark">◆</span> Handpicked
       </p>
-      <h2 id="trending-title" class="mt-2 font-serif text-3xl md:text-4xl">{trending.title}</h2>
+      <h2 class="mt-2 font-serif text-3xl md:text-4xl">Trending Now</h2>
     </div>
     <div
       id="trending-tabs"
@@ -293,9 +324,6 @@ const jsonLd = {
         </div>
       ))}
     </div>
-    <p id="trending-empty" class:list={["py-14 text-center text-charcoal/55", trendingProducts.length ? "hidden" : ""]}>
-      No trending products selected yet.
-    </p>
     <div class="mt-10 text-center">
       <a href="/shop" class="btn btn-outline">View all</a>
     </div>
@@ -574,8 +602,6 @@ const jsonLd = {
   const TCAT = "tcat border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory";
   const tTabs = document.getElementById("trending-tabs");
   const tGrid = document.getElementById("trending-grid");
-  const tTitle = document.getElementById("trending-title");
-  const tEmpty = document.getElementById("trending-empty");
   function applyTrendFilter(tc) {
     tTabs?.querySelectorAll(".tcat").forEach((b) =>
       b.setAttribute("data-active", String(b.dataset.tcat === tc)),
@@ -627,40 +653,35 @@ const jsonLd = {
         }
       }
 
+      const normTag = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "");
+      const hasTag = (p, tag) => (p.tags ?? []).some((t) => normTag(t) === normTag(tag));
+      const prodSig = (list) =>
+        JSON.stringify(list.map((p) => [p.slug, p.price, p.inStock ? 1 : 0, p.category, (p.images ?? []).map((i) => String(i.id)).join(",")]));
+      const bn = new Map(cats.map((c) => [c.name, c]));
+      const mainOf = (leaf) => { const c = bn.get(leaf); return c ? (c.parent ?? c.name) : leaf; };
+
       // Category tiles — re-render only when the catalogue changed.
-      const sec = document.getElementById("trending-section");
+      const tiles = document.getElementById("cat-grid");
       const tilesSigVal = JSON.stringify({
         p: [...products]
           .sort((a, b) => a.slug.localeCompare(b.slug))
           .map((p) => [p.slug, p.price, p.inStock ? 1 : 0, p.featured ? 1 : 0, p.category, (p.images ?? []).map((i) => String(i.id)).join(",")]),
         c: [...cats].sort((a, b) => a.name.localeCompare(b.name)).map((c) => [c.name, c.parent ?? "", c.position]),
       });
-      const tiles = document.getElementById("cat-grid");
-      if (tiles && sec && tilesSigVal !== (sec.dataset.tilesSig ?? "")) {
+      if (tiles && tilesSigVal !== (tiles.dataset.tilesSig ?? "")) {
         tiles.innerHTML = presentMains(products, cats).map(tileHTML).join("") + antiTarnishTile;
-        sec.dataset.tilesSig = tilesSigVal;
+        tiles.dataset.tilesSig = tilesSigVal;
       }
 
-      // Trending — re-render when the curated set or its products changed.
+      // Trending (tag "trending") — with collection filter tabs.
       if (tGrid) {
-        const bn = new Map(cats.map((c) => [c.name, c]));
-        const mainOf = (leaf) => { const c = bn.get(leaf); return c ? (c.parent ?? c.name) : leaf; };
-        const bySlug = new Map(products.map((p) => [p.slug, p]));
-        const slugs = Array.isArray(content.trending?.slugs) ? content.trending.slugs : [];
-        let tprods = slugs.map((s) => bySlug.get(s)).filter(Boolean);
-        if (!tprods.length) tprods = products.filter((p) => p.featured);
-        tprods = tprods.slice(0, 12);
-        const title = content.trending?.title || "Trending Now";
-        const tSig = JSON.stringify({
-          title,
-          t: tprods.map((p) => [p.slug, p.price, p.inStock ? 1 : 0, p.category, (p.images ?? []).map((i) => String(i.id)).join(",")]),
-        });
+        const tprods = products.filter((p) => hasTag(p, "trending")).slice(0, 12);
+        const tSig = prodSig(tprods);
         if (tSig !== (tGrid.dataset.trendingSig ?? "")) {
           const tcats = [...new Set(tprods.map((p) => mainOf(p.category)))];
           tGrid.innerHTML = tprods.map((p, i) => trendItemHTML(p, i, mainOf)).join("");
           tGrid.dataset.trendingSig = tSig;
-          if (tTitle) tTitle.textContent = title;
-          if (tEmpty) tEmpty.classList.toggle("hidden", tprods.length > 0);
+          document.getElementById("trending-section")?.classList.toggle("hidden", tprods.length === 0);
           if (tTabs) {
             tTabs.innerHTML =
               `<button type="button" class="${TCAT}" data-tcat="all" data-active="true">All</button>` +
@@ -669,6 +690,18 @@ const jsonLd = {
             tTabs.classList.toggle("flex", tcats.length > 1);
             applyTrendFilter("all");
           }
+        }
+      }
+
+      // New Arrivals (tag "new arrivals").
+      const naGrid = document.getElementById("newarrivals-grid");
+      if (naGrid) {
+        const na = products.filter((p) => hasTag(p, "new arrivals")).slice(0, 12);
+        const naSig = prodSig(na);
+        if (naSig !== (naGrid.dataset.naSig ?? "")) {
+          naGrid.innerHTML = na.map((p, i) => cardHTML(p, i < 4)).join("");
+          naGrid.dataset.naSig = naSig;
+          document.getElementById("newarrivals-section")?.classList.toggle("hidden", na.length === 0);
         }
       }
     } catch (_) {

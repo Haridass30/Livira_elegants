@@ -28,19 +28,12 @@ export interface ResolvedHero {
 /** A banner slide is shaped exactly like the hero. */
 export type ResolvedSlide = ResolvedHero;
 
-export interface TrendingConfig {
-  title: string;
-  slugs: string[];
-}
-
 export interface ResolvedContent {
   announcements: string[];
   /** First slide, kept for callers that only expect one hero. */
   hero: ResolvedHero;
   /** Full banner carousel (always at least one slide). */
   slides: ResolvedSlide[];
-  /** Admin-curated trending products for the homepage. */
-  trending: TrendingConfig;
 }
 
 const DEFAULT_SLIDE: ResolvedHero = {
@@ -57,7 +50,6 @@ const DEFAULTS: ResolvedContent = {
   announcements: site.announcements ?? [],
   hero: DEFAULT_SLIDE,
   slides: [DEFAULT_SLIDE],
-  trending: { title: "Trending Now", slugs: [] },
 };
 
 interface RawSlide {
@@ -117,7 +109,6 @@ async function load(tries = 4): Promise<ResolvedContent> {
         announcements?: string[];
         hero?: RawSlide;
         slides?: RawSlide[];
-        trending?: { title?: string; slugs?: string[] };
       };
 
       const rawSlides =
@@ -136,15 +127,6 @@ async function load(tries = 4): Promise<ResolvedContent> {
             : DEFAULTS.announcements,
         hero: slides[0],
         slides,
-        trending: {
-          title:
-            typeof d.trending?.title === "string" && d.trending.title.trim()
-              ? d.trending.title
-              : "Trending Now",
-          slugs: Array.isArray(d.trending?.slugs)
-            ? d.trending!.slugs.filter((s) => typeof s === "string")
-            : [],
-        },
       };
     } catch (err) {
       lastErr = err;
