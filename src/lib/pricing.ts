@@ -170,8 +170,10 @@ export function validateCustomer(c: unknown): string[] {
     errors.push("Please enter a valid 10-digit phone number.");
   if (!cust.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cust.email))
     errors.push("Please enter a valid email address.");
-  if (!cust.address || cust.address.trim().length < 8)
-    errors.push("Please enter your full delivery address.");
+  if (!cust.street || cust.street.trim().length < 3)
+    errors.push("Please enter your street / house number.");
+  if (!cust.city || cust.city.trim().length < 2)
+    errors.push("Please enter your city / town.");
   if (!cust.pincode || !/^[1-9][0-9]{5}$/.test(String(cust.pincode)))
     errors.push("Please enter a valid 6-digit pincode.");
   return errors;

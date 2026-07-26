@@ -30,6 +30,13 @@ export interface CustomerInput {
   name: string;
   phone: string;
   email: string;
+  /** Street / house no. (required). */
+  street: string;
+  /** Nearby landmark (optional). */
+  landmark: string;
+  /** City / town (required). */
+  city: string;
+  /** Full composed address (street, landmark, city) — stored on the order. */
   address: string;
   pincode: string;
 }

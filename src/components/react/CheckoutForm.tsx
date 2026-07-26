@@ -34,6 +34,9 @@ export default function CheckoutForm() {
     name: "",
     phone: "",
     email: "",
+    street: "",
+    landmark: "",
+    city: "",
     address: "",
     pincode: "",
   });
@@ -130,8 +133,9 @@ export default function CheckoutForm() {
       e.phone = "Enter a valid 10-digit number.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email))
       e.email = "Enter a valid email.";
-    if (customer.address.trim().length < 8)
-      e.address = "Enter your full address.";
+    if (customer.street.trim().length < 3)
+      e.street = "Enter your street / house no.";
+    if (customer.city.trim().length < 2) e.city = "Enter your city / town.";
     if (!/^[1-9][0-9]{5}$/.test(customer.pincode))
       e.pincode = "Enter a valid 6-digit pincode.";
     setFieldErrors(e);
@@ -160,13 +164,22 @@ export default function CheckoutForm() {
     if (!validate()) return;
     setBusy(true);
 
+    // Compose the full delivery address from the structured fields.
+    const customerToSend: CustomerInput = {
+      ...customer,
+      address: [customer.street, customer.landmark, customer.city]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(", "),
+    };
+
     try {
       const res = await fetch("/api/orders/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           method: effectiveMethod,
-          customer,
+          customer: customerToSend,
           couponCode: coupon?.code,
           // Server only trusts slug + qty; it re-prices everything.
           items: lines.map((l) => ({ slug: l.slug, qty: l.qty })),
@@ -293,14 +306,27 @@ export default function CheckoutForm() {
             />
           </div>
           <Field
-            label="Delivery address"
-            value={customer.address}
-            onChange={(v) => update("address", v)}
-            error={fieldErrors.address}
-            autoComplete="street-address"
+            label="Street / House no."
+            value={customer.street}
+            onChange={(v) => update("street", v)}
+            error={fieldErrors.street}
+            autoComplete="address-line1"
             multiline
           />
-          <div className="sm:max-w-[12rem]">
+          <Field
+            label="Landmark (optional)"
+            value={customer.landmark}
+            onChange={(v) => update("landmark", v)}
+            autoComplete="address-line2"
+          />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="City / Town"
+              value={customer.city}
+              onChange={(v) => update("city", v)}
+              error={fieldErrors.city}
+              autoComplete="address-level2"
+            />
             <Field
               label="Pincode"
               value={customer.pincode}

@@ -64,6 +64,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const customerErrors = validateCustomer(body?.customer);
   if (customerErrors.length) return badRequest(customerErrors);
 
+  // Always (re)compose the stored address from the structured fields server-side.
+  body.customer.address = [body.customer.street, body.customer.landmark, body.customer.city]
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+
   // 2) Pincode serviceability (optional; allow-list/deny-list in config).
   if (!isPincodeServiceable(body.customer.pincode, cfg)) {
     return badRequest("Sorry, we don't deliver to that pincode yet.");
