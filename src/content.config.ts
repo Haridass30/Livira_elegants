@@ -85,6 +85,7 @@ const products = defineCollection({
     stockQty: z.number().int().nullable().optional(),
     featured: z.boolean().default(false),
     sku: z.string().nullable().optional(),
+    createdAt: z.string().optional(),
     tags: z.array(z.string()).default([]),
   }),
 });

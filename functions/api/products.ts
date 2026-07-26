@@ -42,6 +42,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     stockQty: p.stock_qty,
     featured: p.featured === 1,
     sku: p.sku,
+    createdAt: p.created_at,
     tags: p.tags ? p.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
     images: (imagesBySlug.get(p.slug) ?? []).map((i) => ({
       id: i.id,
