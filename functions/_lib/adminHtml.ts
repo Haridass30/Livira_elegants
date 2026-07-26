@@ -99,6 +99,7 @@ ${
         <nav>
           <a href="/admin">Orders</a>
           <a href="/admin/products">Products</a>
+          <a href="/admin/trending">Trending</a>
           <a href="/admin/content">Homepage</a>
           <a href="/admin/coupons">Coupons</a>
           <a href="/admin/customers">Customers</a>
