@@ -61,11 +61,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const filter = url.searchParams.get("status") || "all";
   const updated = url.searchParams.get("updated");
+  const q = (url.searchParams.get("q") || "").trim();
 
-  const [stats, orders] = await Promise.all([
+  const [stats, allOrders] = await Promise.all([
     getStats(env),
     listOrders(env, filter, 200),
   ]);
+
+  const ql = q.toLowerCase();
+  const orders = q
+    ? allOrders.filter((o) =>
+        [o.order_ref, o.customer_name, o.phone, o.email].some((v) =>
+          String(v ?? "").toLowerCase().includes(ql),
+        ),
+      )
+    : allOrders;
 
   const statCards = `
     <div class="stats">
@@ -100,9 +110,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const body = `
     <h1>Orders</h1>
-    <p class="muted">Showing ${orders.length} order${orders.length === 1 ? "" : "s"}${filter !== "all" ? ` · filtered by “${esc(filter)}”` : ""}.</p>
+    <p class="muted">Showing ${orders.length} order${orders.length === 1 ? "" : "s"}${filter !== "all" ? ` · filtered by “${esc(filter)}”` : ""}${q ? ` · matching “${esc(q)}”` : ""}.</p>
     ${updated ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a">Order ${esc(updated)} updated.</div>` : ""}
     ${statCards}
+    <form method="get" style="margin:16px 0 8px;display:flex;gap:8px;max-width:460px">
+      <input type="hidden" name="status" value="${esc(filter)}"/>
+      <input name="q" value="${esc(q)}" placeholder="Search order ref, name, phone or email…" style="flex:1;padding:9px 12px;border:1px solid rgba(43,39,36,.25);border-radius:7px"/>
+      <button type="submit">Search</button>
+      ${q ? `<a href="/admin?status=${esc(filter)}"><button type="button" style="background:#fff;color:var(--char);border:1px solid rgba(43,39,36,.25)">Clear</button></a>` : ""}
+    </form>
     ${filterTabs}
     <table>
       <thead><tr><th>Date</th><th>Ref</th><th>Customer</th><th>Items</th><th>Method</th><th>Total</th><th>Status</th></tr></thead>
