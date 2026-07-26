@@ -91,6 +91,23 @@ export async function listProducts(env: Env): Promise<ProductRow[]> {
   return res.results ?? [];
 }
 
+/** Admin listing — includes disabled (active=0) products so they can be re-enabled. */
+export async function listAllProducts(env: Env): Promise<ProductRow[]> {
+  const res = await env.DB.prepare(
+    `SELECT * FROM products ORDER BY active DESC, category, name`,
+  ).all<ProductRow>();
+  return res.results ?? [];
+}
+
+/** Enable/disable a product without deleting it (hides it from the shop). */
+export async function setProductActive(env: Env, slug: string, active: boolean): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE products SET active = ?, updated_at = datetime('now') WHERE slug = ?`,
+  )
+    .bind(active ? 1 : 0, slug)
+    .run();
+}
+
 export async function getProduct(env: Env, slug: string): Promise<ProductRow | null> {
   return env.DB.prepare(`SELECT * FROM products WHERE slug = ?`)
     .bind(slug)
