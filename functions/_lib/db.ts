@@ -239,3 +239,16 @@ export async function updateOrderStatus(
     .run();
   return res.meta.changes ?? 0;
 }
+
+/** Correct a customer's delivery details on an order (e.g. a mistyped address). */
+export async function updateOrderCustomer(
+  env: Env,
+  orderRef: string,
+  c: { name: string; phone: string; email: string; address: string; pincode: string },
+): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE orders SET customer_name=?, phone=?, email=?, address=?, pincode=? WHERE order_ref=?`,
+  )
+    .bind(c.name.trim(), c.phone.trim(), c.email.trim().toLowerCase(), c.address.trim(), c.pincode.trim(), orderRef)
+    .run();
+}

@@ -99,7 +99,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
             (o) => `<tr>
         <td>${fmtDate(esc(o.created_at))}</td>
         <td><strong>${esc(o.order_ref)}</strong>${o.razorpay_payment_id ? `<br><span class="muted" style="font-size:11px">${esc(o.razorpay_payment_id)}</span>` : ""}</td>
-        <td>${esc(o.customer_name)}<br><span class="muted" style="font-size:12px">${esc(o.phone)}<br>${esc(o.email)}</span><br><span class="muted" style="font-size:12px">${esc(o.address)}, ${esc(o.pincode)}</span></td>
+        <td>${esc(o.customer_name)}<br><span class="muted" style="font-size:12px">${esc(o.phone)}<br>${esc(o.email)}</span><br><span class="muted" style="font-size:12px">${esc(o.address)}, ${esc(o.pincode)}</span><br><a href="/admin/orders/edit?ref=${encodeURIComponent(o.order_ref)}" style="font-size:11px">✎ Edit details</a></td>
         <td>${itemsCell(o.items)}</td>
         <td>${o.method === "cod" ? "COD" : "Online"}</td>
         <td><strong>${money(o.amount_total)}</strong><br><span class="muted" style="font-size:11px">sub ${money(o.amount_subtotal)} · ship ${money(o.amount_shipping)}${o.amount_discount ? ` · −${money(o.amount_discount)}${o.coupon_code ? ` (${esc(o.coupon_code)})` : ""}` : ""}</span></td>
