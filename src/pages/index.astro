@@ -11,13 +11,14 @@ const { slides, bento } = await getSiteContent();
 const multiple = slides.length > 1;
 const hasBento = bento.some((b) => b.imageId);
 const bentoSig = JSON.stringify(bento.map((b) => [b.imageId ?? 0, b.link, b.caption]));
-// Desktop placement: 2 small tiles left, the large tile in the centre, 2 small right.
+// Placement per tile. Mobile: 2 small on top, the large tile in the middle,
+// 2 small on the bottom. Desktop: 2 small left, large centre, 2 small right.
 const BENTO_POS = [
-  "md:col-start-2 md:col-span-2 md:row-span-2", // 0 — large centre
-  "md:col-start-1 md:row-start-1", // 1 — top-left
-  "md:col-start-1 md:row-start-2", // 2 — bottom-left
-  "md:col-start-4 md:row-start-1", // 3 — top-right
-  "md:col-start-4 md:row-start-2", // 4 — bottom-right
+  "col-span-2 row-start-2 aspect-[3/2] md:col-start-2 md:col-span-2 md:row-span-2 md:row-start-1 md:aspect-auto", // 0 — large
+  "col-start-1 row-start-1 aspect-square md:col-start-1 md:row-start-1 md:aspect-auto", // 1 — top-left
+  "col-start-2 row-start-1 aspect-square md:col-start-1 md:row-start-2 md:aspect-auto", // 2 — top-right / desk bottom-left
+  "col-start-1 row-start-3 aspect-square md:col-start-4 md:row-start-1 md:aspect-auto", // 3 — bottom-left / desk top-right
+  "col-start-2 row-start-3 aspect-square md:col-start-4 md:row-start-2 md:aspect-auto", // 4 — bottom-right
 ];
 
 const all = await getCollection("products");
@@ -302,8 +303,7 @@ const jsonLd = {
       {
         [0, 1, 2, 3, 4].map((i) => {
           const b = bento[i] ?? { imageId: null, link: "", caption: "" };
-          const large = i === 0;
-          const cls = `bento-cell group relative block overflow-hidden rounded-[3px] aspect-square md:aspect-auto ${large ? "col-span-2" : ""} ${BENTO_POS[i]} ${b.imageId ? "card-lux" : "surface"}`;
+          const cls = `bento-cell group relative block overflow-hidden rounded-[3px] ${BENTO_POS[i]} ${b.imageId ? "card-lux" : "surface"}`;
           const Tag = b.imageId && b.link ? "a" : "div";
           return (
             <Tag href={b.imageId && b.link ? b.link : undefined} class={cls}>
@@ -663,15 +663,14 @@ const jsonLd = {
     return `<div class="trend-item" data-main="${esc(mainOf(p.category))}">${cardHTML(p, i < 4)}</div>`;
   }
   const BENTO_POS = [
-    "md:col-start-2 md:col-span-2 md:row-span-2",
-    "md:col-start-1 md:row-start-1",
-    "md:col-start-1 md:row-start-2",
-    "md:col-start-4 md:row-start-1",
-    "md:col-start-4 md:row-start-2",
+    "col-span-2 row-start-2 aspect-[3/2] md:col-start-2 md:col-span-2 md:row-span-2 md:row-start-1 md:aspect-auto",
+    "col-start-1 row-start-1 aspect-square md:col-start-1 md:row-start-1 md:aspect-auto",
+    "col-start-2 row-start-1 aspect-square md:col-start-1 md:row-start-2 md:aspect-auto",
+    "col-start-1 row-start-3 aspect-square md:col-start-4 md:row-start-1 md:aspect-auto",
+    "col-start-2 row-start-3 aspect-square md:col-start-4 md:row-start-2 md:aspect-auto",
   ];
   function bentoCellHTML(b, i) {
-    const large = i === 0;
-    const cls = `bento-cell group relative block overflow-hidden rounded-[3px] aspect-square md:aspect-auto ${large ? "col-span-2" : ""} ${BENTO_POS[i]} ${b.imageId ? "card-lux" : "surface"}`;
+    const cls = `bento-cell group relative block overflow-hidden rounded-[3px] ${BENTO_POS[i]} ${b.imageId ? "card-lux" : "surface"}`;
     const img = b.imageId
       ? `<img src="/api/images/${b.imageId}" alt="${esc(b.caption || "")}" loading="lazy" class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105">`
       : "";
