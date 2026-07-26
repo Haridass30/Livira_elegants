@@ -7,12 +7,12 @@ const { announcements: messages } = await getSiteContent();
   messages.length > 0 && (
     <div
       id="announce-bar"
-      class="fixed inset-x-0 top-0 z-50 h-9 overflow-hidden border-b hairline bg-bone text-charcoal/80"
+      class="fixed inset-x-0 top-0 z-50 h-9 overflow-hidden border-b hairline bg-[#180c14] text-[#ecdccf]/85"
     >
       <div class="announce-track flex h-9 items-center whitespace-nowrap">
         {[...messages, ...messages].map((m) => (
           <span class="mx-8 inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.2em]">
-            <span class="text-amethyst">◆</span>
+            <span class="text-[#c9a2de]">◆</span>
             {m}
           </span>
         ))}

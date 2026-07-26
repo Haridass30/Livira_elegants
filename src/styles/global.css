@@ -310,6 +310,41 @@
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Logo-matched dark chrome — HEADER & FOOTER only (rest of site is light).
+ * Deep plum background, warm cream text, rose-gold accents.
+ * ------------------------------------------------------------------ */
+.site-header-dark {
+  background: linear-gradient(180deg, #2a1626 0%, #1b0f18 100%);
+  border-bottom-color: rgba(207, 154, 110, 0.26);
+}
+/* Cart button is a React island (fixed text-charcoal) — recolour it here. */
+.site-header-dark [aria-label^="Open bag"] {
+  color: #ecdccf;
+}
+.site-header-dark [aria-label^="Open bag"]:hover {
+  color: #fff;
+}
+
+footer.site-footer-dark {
+  background: linear-gradient(180deg, #271524 0%, #170c14 100%);
+  color: #ecdccf;
+  border-top-color: rgba(207, 154, 110, 0.26);
+}
+/* Warm-up the muted charcoal text used throughout the footer for the dark bg. */
+.site-footer-dark :where(.text-charcoal\/75, .text-charcoal\/70, .text-charcoal\/65, .text-charcoal\/60, .text-charcoal\/55) {
+  color: rgba(236, 220, 207, 0.72);
+}
+.site-footer-dark a.link-underline {
+  color: rgba(236, 220, 207, 0.85);
+}
+.site-footer-dark a.link-underline:hover {
+  color: #fff;
+}
+.site-footer-dark .eyebrow {
+  color: #dcab7e;
+}
+
 /* Continuous soft shimmer for metallic wordmarks (respects reduced motion). */
 @keyframes metallic-sheen {
   to {
