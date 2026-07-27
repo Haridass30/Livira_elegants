@@ -18,3 +18,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# Local DB exports — contain customer data; never commit
+backups/
