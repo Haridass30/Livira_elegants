@@ -5,6 +5,7 @@ import { adminPage, htmlResponse, esc, money } from "../../_lib/adminHtml";
 import {
   listAllProducts,
   setProductActive,
+  deleteProduct,
   listAllImages,
   listCollections,
   effectiveInStock,
@@ -72,6 +73,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
             <input type="hidden" name="active" value="${disabled ? "1" : "0"}"/>
             <button type="submit" style="background:${disabled ? "#2f6b3a" : "#8a6d1e"}">${disabled ? "Enable" : "Disable"}</button>
           </form>
+          <form method="post" action="/admin/products" style="display:inline;margin-left:6px" onsubmit="return confirm('Permanently delete “${esc(p.name)}”? This cannot be undone.')">
+            <input type="hidden" name="action" value="delete"/>
+            <input type="hidden" name="slug" value="${esc(p.slug)}"/>
+            <button type="submit" style="background:#8a2f2f">Delete</button>
+          </form>
           <a href="/product/${esc(p.slug)}" target="_blank" rel="noopener" style="margin-left:6px">View</a>
         </td>
       </tr>`;
@@ -123,6 +129,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const active = String(form.get("active") ?? "") === "1";
     if (slug) await setProductActive(env, slug, active);
     return back(active ? "Product enabled." : "Product disabled (hidden from the shop).");
+  }
+  if (action === "delete") {
+    const slug = String(form.get("slug") ?? "");
+    if (slug) await deleteProduct(env, slug);
+    return back("Product deleted.");
   }
   return Response.redirect(new URL("/admin/products", request.url).href, 303);
 };

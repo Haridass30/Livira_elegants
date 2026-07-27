@@ -56,12 +56,16 @@ function parentForm(c: CollectionRow, mains: CollectionRow[], canNest: boolean):
   </form>`;
 }
 
-function deleteForm(c: CollectionRow, blockReason?: string): string {
-  const disabled = blockReason ? ` disabled title="${esc(blockReason)}"` : "";
-  return `<form method="post" onsubmit="return confirm('Delete “${esc(c.name)}”?')">
+function deleteForm(c: CollectionRow, hasChildren: boolean): string {
+  const count = c.product_count ?? 0;
+  const warn: string[] = [];
+  if (count > 0) warn.push(`${count} product${count === 1 ? "" : "s"}`);
+  if (hasChildren) warn.push("its sub-categories");
+  const extra = warn.length ? ` This also permanently deletes ${warn.join(" and ")}.` : "";
+  return `<form method="post" onsubmit="return confirm('Delete “${esc(c.name)}”?${extra} This cannot be undone.')">
     <input type="hidden" name="action" value="delete"/>
     <input type="hidden" name="name" value="${esc(c.name)}"/>
-    <button type="submit" style="background:#8a2f2f"${disabled}>Delete</button>
+    <button type="submit" style="background:#8a2f2f">Delete</button>
   </form>`;
 }
 
@@ -80,17 +84,12 @@ function rowFor(
   opts: { indent: boolean; mains: CollectionRow[]; hasChildren: boolean },
 ): string {
   const count = c.product_count ?? 0;
-  const blockReason = opts.hasChildren
-    ? "Remove its sub-categories first"
-    : count > 0
-      ? "Move its products first"
-      : undefined;
   const rowStyle = c.hidden === 1 ? ' style="opacity:.55"' : opts.indent ? ' style="background:#fcfbf9"' : "";
   return `<tr${rowStyle}>
     <td style="${opts.indent ? "padding-left:26px" : ""}">${renameForm(c, opts.indent)}${c.hidden === 1 ? ' <span class="muted" style="font-size:11px">· hidden</span>' : ""}</td>
     <td>${count} product${count === 1 ? "" : "s"}</td>
     <td>${parentForm(c, opts.mains, !opts.hasChildren)}</td>
-    <td style="white-space:nowrap">${hiddenForm(c)}${deleteForm(c, blockReason)}</td>
+    <td style="white-space:nowrap">${hiddenForm(c)}${deleteForm(c, opts.hasChildren)}</td>
   </tr>`;
 }
 
@@ -222,11 +221,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === "delete") {
       const name = String(form.get("name") ?? "");
-      const block = await deleteCollection(env, name);
-      if (block === "products")
-        return fail("Move its products to another collection first.");
-      if (block === "children") return fail("Remove its sub-categories first.");
-      return ok("Collection deleted.");
+      const { products } = await deleteCollection(env, name);
+      return ok(
+        products > 0
+          ? `“${name}” deleted, along with ${products} product${products === 1 ? "" : "s"}.`
+          : `“${name}” deleted.`,
+      );
     }
 
     return fail("Unknown action.");

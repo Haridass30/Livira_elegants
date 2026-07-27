@@ -205,13 +205,12 @@ export async function updateProduct(
     .run();
 }
 
-/** Soft delete — keeps the row for order history, removes images. */
+/** Permanently delete a product and its images. Past orders keep their own
+ *  snapshot of the line items, so order history is unaffected. */
 export async function deleteProduct(env: Env, slug: string): Promise<void> {
   await env.DB.batch([
-    env.DB.prepare(
-      `UPDATE products SET active = 0, updated_at = datetime('now') WHERE slug = ?`,
-    ).bind(slug),
     env.DB.prepare(`DELETE FROM product_images WHERE product_slug = ?`).bind(slug),
+    env.DB.prepare(`DELETE FROM products WHERE slug = ?`).bind(slug),
   ]);
 }
 
@@ -421,25 +420,31 @@ export async function renameCollection(
   ]);
 }
 
-export type DeleteBlock = "products" | "children";
+/**
+ * Delete a collection and everything under it: its sub-categories and every
+ * product (with images) in the collection or its subs. Returns how many
+ * products were removed. Past orders keep their own line-item snapshots.
+ */
+export async function deleteCollection(env: Env, name: string): Promise<{ products: number }> {
+  const subs = await env.DB.prepare(`SELECT name FROM collections WHERE parent = ?`)
+    .bind(name)
+    .all<{ name: string }>();
+  const names = [name, ...(subs.results ?? []).map((s) => s.name)];
+  const ph = names.map(() => "?").join(",");
 
-/** Delete only when empty; returns why it was blocked, or null on success. */
-export async function deleteCollection(
-  env: Env,
-  name: string,
-): Promise<DeleteBlock | null> {
-  const products = await env.DB.prepare(
-    `SELECT COUNT(*) AS c FROM products WHERE category = ? AND active = 1`,
+  const cnt = await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM products WHERE category IN (${ph})`,
   )
-    .bind(name)
+    .bind(...names)
     .first<{ c: number }>();
-  if ((products?.c ?? 0) > 0) return "products";
-  const kids = await env.DB.prepare(
-    `SELECT COUNT(*) AS c FROM collections WHERE parent = ?`,
-  )
-    .bind(name)
-    .first<{ c: number }>();
-  if ((kids?.c ?? 0) > 0) return "children";
-  await env.DB.prepare(`DELETE FROM collections WHERE name = ?`).bind(name).run();
-  return null;
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `DELETE FROM product_images WHERE product_slug IN (SELECT slug FROM products WHERE category IN (${ph}))`,
+    ).bind(...names),
+    env.DB.prepare(`DELETE FROM products WHERE category IN (${ph})`).bind(...names),
+    env.DB.prepare(`DELETE FROM collections WHERE name = ? OR parent = ?`).bind(name, name),
+  ]);
+
+  return { products: cnt?.c ?? 0 };
 }
