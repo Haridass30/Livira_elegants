@@ -317,6 +317,8 @@ export interface CollectionRow {
   parent: string | null;
   /** 1 = hidden from the shop (disabled). */
   hidden: number;
+  /** product_images.id of the collection cover photo, or null. */
+  image_id: number | null;
   product_count?: number;
 }
 
@@ -327,7 +329,7 @@ export interface CollectionNode extends CollectionRow {
 
 export async function listCollections(env: Env): Promise<CollectionRow[]> {
   const res = await env.DB.prepare(
-    `SELECT c.name, c.position, c.parent, c.hidden,
+    `SELECT c.name, c.position, c.parent, c.hidden, c.image_id,
             (SELECT COUNT(*) FROM products p WHERE p.category = c.name AND p.active = 1) AS product_count
      FROM collections c ORDER BY c.position, c.name`,
   ).all<CollectionRow>();
@@ -339,6 +341,24 @@ export async function setCollectionHidden(env: Env, name: string, hidden: boolea
   await env.DB.prepare(`UPDATE collections SET hidden = ? WHERE name = ?`)
     .bind(hidden ? 1 : 0, name)
     .run();
+}
+
+/** Set (or clear, with null) a collection's cover photo; prunes the old image. */
+export async function setCollectionImage(
+  env: Env,
+  name: string,
+  imageId: number | null,
+): Promise<void> {
+  const prev = await env.DB.prepare(`SELECT image_id FROM collections WHERE name = ?`)
+    .bind(name)
+    .first<{ image_id: number | null }>();
+  await env.DB.prepare(`UPDATE collections SET image_id = ? WHERE name = ?`)
+    .bind(imageId, name)
+    .run();
+  const old = prev?.image_id ?? null;
+  if (old && old !== imageId) {
+    await env.DB.prepare(`DELETE FROM product_images WHERE id = ?`).bind(old).run();
+  }
 }
 
 /** Category names that are hidden — hidden collections plus subs of hidden mains. */

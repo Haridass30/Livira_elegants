@@ -46,6 +46,8 @@ const mainOfHome = (leaf: string) => {
   const c = byNameHome.get(leaf);
   return c ? (c.parent ?? c.name) : leaf;
 };
+// Collection cover photos (name → product_images.id) for the tile backgrounds.
+const catImage = new Map(cats.map((c) => [c.name, c.imageId ?? null]));
 
 // "Trending" and "New Arrivals" are driven by product tags, matched case- and
 // space-insensitively (so "New Arrivals" / "new arrivals" / "newarrivals" match).
@@ -102,7 +104,7 @@ const tilesSig = JSON.stringify({
     ]),
   c: [...cats]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((c) => [c.name, c.parent ?? "", c.position]),
+    .map((c) => [c.name, c.parent ?? "", c.position, c.imageId ?? 0]),
 });
 const prodSig = (list: typeof all) =>
   JSON.stringify(
@@ -265,19 +267,39 @@ const jsonLd = {
     </div>
     <div id="cat-grid" data-tiles-sig={tilesSig} class="cat-scroll grid grid-flow-col grid-rows-2 auto-cols-max snap-x gap-4 overflow-x-auto px-5 pb-3 md:grid-rows-1 md:px-10">
       {
-        categories.map((cat) => (
-          <a
-            href={`/shop?category=${encodeURIComponent(cat)}`}
-            class="card-lux group flex aspect-[3/4] w-36 shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center sm:w-40"
-          >
-            <span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span>
-            <span class="font-serif text-lg leading-tight tracking-wide sm:text-xl">{cat}</span>
-            <span class="gold-rule w-8 transition-all duration-500 group-hover:w-16" />
-            <span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">
-              Explore →
-            </span>
-          </a>
-        ))
+        categories.map((cat) => {
+          const img = catImage.get(cat);
+          return img ? (
+            <a
+              href={`/shop?category=${encodeURIComponent(cat)}`}
+              class="card-lux group relative flex aspect-[3/4] w-36 shrink-0 snap-start overflow-hidden rounded-[3px] sm:w-40"
+            >
+              <img
+                src={`/api/images/${img}`}
+                alt={cat}
+                loading="lazy"
+                class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/25 to-transparent" />
+              <div class="absolute inset-x-0 bottom-0 flex flex-col items-center p-3 text-center">
+                <span class="font-serif text-lg leading-tight text-white sm:text-xl">{cat}</span>
+                <span class="mt-1 text-[10px] uppercase tracking-[0.18em] text-champagne-soft">Explore →</span>
+              </div>
+            </a>
+          ) : (
+            <a
+              href={`/shop?category=${encodeURIComponent(cat)}`}
+              class="card-lux group flex aspect-[3/4] w-36 shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center sm:w-40"
+            >
+              <span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span>
+              <span class="font-serif text-lg leading-tight tracking-wide sm:text-xl">{cat}</span>
+              <span class="gold-rule w-8 transition-all duration-500 group-hover:w-16" />
+              <span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">
+                Explore →
+              </span>
+            </a>
+          );
+        })
       }
       <a
         href={`/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}`}
@@ -626,11 +648,15 @@ const jsonLd = {
     return `<a href="/product/${encodeURIComponent(p.slug)}" class="group block" aria-label="${esc(p.name)}, ${fmtINR.format(p.price)}"><div class="card-lux relative overflow-hidden rounded-[3px]" style="aspect-ratio:4 / 5;">${base}${hover}${badge}<div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-[#150b10]/75 to-transparent pb-4 pt-10 opacity-0 transition-opacity duration-500 group-hover:opacity-100"><span class="text-[11px] uppercase tracking-[0.22em] text-champagne-soft">View piece →</span></div></div><div class="pt-4 text-center"><p class="text-[10px] uppercase tracking-[0.2em] text-champagne/70">${esc(p.category)}</p><h3 class="mt-1.5 font-serif text-lg leading-snug transition-colors group-hover:text-ink">${esc(p.name)}</h3><p class="mt-1.5 flex items-baseline justify-center gap-2 text-sm">${price}</p></div></a>`;
   }
 
-  const tileClass = "card-lux group flex aspect-[3/4] w-36 shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center sm:w-40";
-  function tileHTML(name) {
-    return `<a href="/shop?category=${encodeURIComponent(name)}" class="${tileClass}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-lg leading-tight tracking-wide sm:text-xl">${esc(name)}</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
+  const TILE_BASE = "card-lux group relative flex aspect-[3/4] w-36 shrink-0 snap-start overflow-hidden rounded-[3px] sm:w-40";
+  const TILE_TEXT = TILE_BASE + " flex-col items-center justify-center gap-3 px-3 text-center";
+  function tileHTML(name, imgId) {
+    if (imgId) {
+      return `<a href="/shop?category=${encodeURIComponent(name)}" class="${TILE_BASE}"><img src="/api/images/${imgId}" alt="${esc(name)}" loading="lazy" class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"><div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/25 to-transparent"></div><div class="absolute inset-x-0 bottom-0 flex flex-col items-center p-3 text-center"><span class="font-serif text-lg leading-tight text-white sm:text-xl">${esc(name)}</span><span class="mt-1 text-[10px] uppercase tracking-[0.18em] text-champagne-soft">Explore →</span></div></a>`;
+    }
+    return `<a href="/shop?category=${encodeURIComponent(name)}" class="${TILE_TEXT}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-lg leading-tight tracking-wide sm:text-xl">${esc(name)}</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
   }
-  const antiTarnishTile = `<a href="/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}" class="${tileClass}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-base leading-tight tracking-wide sm:text-lg">Anti-Tarnish<br>Jewels</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
+  const antiTarnishTile = `<a href="/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}" class="${TILE_TEXT}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-base leading-tight tracking-wide sm:text-lg">Anti-Tarnish<br>Jewels</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
 
   function presentMains(products, cats) {
     const leaves = new Set(products.map((p) => p.category));
@@ -730,10 +756,11 @@ const jsonLd = {
         p: [...products]
           .sort((a, b) => a.slug.localeCompare(b.slug))
           .map((p) => [p.slug, p.price, p.inStock ? 1 : 0, p.featured ? 1 : 0, p.category, (p.images ?? []).map((i) => String(i.id)).join(",")]),
-        c: [...cats].sort((a, b) => a.name.localeCompare(b.name)).map((c) => [c.name, c.parent ?? "", c.position]),
+        c: [...cats].sort((a, b) => a.name.localeCompare(b.name)).map((c) => [c.name, c.parent ?? "", c.position, c.imageId ?? 0]),
       });
       if (tiles && tilesSigVal !== (tiles.dataset.tilesSig ?? "")) {
-        tiles.innerHTML = presentMains(products, cats).map(tileHTML).join("") + antiTarnishTile;
+        const catImg = new Map(cats.map((c) => [c.name, c.imageId ?? null]));
+        tiles.innerHTML = presentMains(products, cats).map((n) => tileHTML(n, catImg.get(n))).join("") + antiTarnishTile;
         tiles.dataset.tilesSig = tilesSigVal;
       }
 

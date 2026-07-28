@@ -16,9 +16,26 @@ import {
   deleteCollection,
   setCollectionParent,
   setCollectionHidden,
+  setCollectionImage,
   type CollectionRow,
   type CollectionNode,
 } from "../_lib/catalogDb";
+
+function imageCell(c: CollectionRow): string {
+  const thumb = c.image_id
+    ? `<img src="/api/images/${c.image_id}" alt="" style="width:44px;height:56px;object-fit:cover;border-radius:4px;vertical-align:middle"/>`
+    : `<span style="display:inline-flex;width:44px;height:56px;border-radius:4px;background:var(--bone);align-items:center;justify-content:center;color:rgba(43,39,36,.4);font-size:10px">none</span>`;
+  const remove = c.image_id
+    ? `<form method="post" style="margin:0"><input type="hidden" name="action" value="set_image"/><input type="hidden" name="name" value="${esc(c.name)}"/><input type="hidden" name="image_id" value=""/><button type="submit" style="background:#fff;color:var(--char);border:1px solid var(--line);font-size:11px;padding:2px 8px">Remove</button></form>`
+    : "";
+  return `<div style="display:flex;align-items:center;gap:8px">
+    ${thumb}
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label class="s-upload"><input type="file" accept="image/*" class="col-file" data-name="${esc(c.name)}" hidden/><span class="s-upload-btn">Photo…</span></label>
+      ${remove}
+    </div>
+  </div>`;
+}
 
 const inputStyle =
   "padding:8px 10px;border:1px solid rgba(43,39,36,.25);border-radius:2px";
@@ -87,6 +104,7 @@ function rowFor(
   const rowStyle = c.hidden === 1 ? ' style="opacity:.55"' : opts.indent ? ' style="background:#fcfbf9"' : "";
   return `<tr${rowStyle}>
     <td style="${opts.indent ? "padding-left:26px" : ""}">${renameForm(c, opts.indent)}${c.hidden === 1 ? ' <span class="muted" style="font-size:11px">· hidden</span>' : ""}</td>
+    <td>${imageCell(c)}</td>
     <td>${count} product${count === 1 ? "" : "s"}</td>
     <td>${parentForm(c, opts.mains, !opts.hasChildren)}</td>
     <td style="white-space:nowrap">${hiddenForm(c)}${deleteForm(c, opts.hasChildren)}</td>
@@ -103,7 +121,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const rows =
     tree.length === 0
-      ? `<tr><td colspan="4" class="muted" style="padding:28px;text-align:center">No collections yet — add your first one below.</td></tr>`
+      ? `<tr><td colspan="5" class="muted" style="padding:28px;text-align:center">No collections yet — add your first one below.</td></tr>`
       : tree
           .map((m: CollectionNode) => {
             const head = rowFor(m, {
@@ -131,9 +149,35 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ${msg ? `<div class="err" style="background:#e4f0e6;color:#2f6b3a">${esc(msg)}</div>` : ""}
     ${err ? `<div class="err">${esc(err)}</div>` : ""}
     <table>
-      <thead><tr><th>Collection</th><th>Products</th><th>Parent</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Image</th><th>Products</th><th>Parent</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+
+    <style>
+      .s-upload{display:inline-flex;align-items:center}
+      .s-upload-btn{display:inline-block;padding:4px 10px;border:1px solid var(--line);border-radius:6px;font-size:11.5px;cursor:pointer;background:#fff}
+      .s-upload-btn:hover{border-color:var(--gold)}
+    </style>
+    <script>
+      async function uploadCol(input){
+        const name=input.dataset.name;const file=input.files&&input.files[0];if(!file)return;
+        const btn=input.parentElement.querySelector('.s-upload-btn');const orig=btn.textContent;btn.textContent='Uploading…';
+        try{
+          const img=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=URL.createObjectURL(file)});
+          const max=1000;let w=img.width,h=img.height;if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r)}
+          const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);
+          const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.85));
+          const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.readAsDataURL(blob)});
+          const res=await fetch('/admin/collections/upload',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mime:'image/jpeg',width:w,height:h,dataBase64:b64})});
+          const data=await res.json();if(!data.ok)throw new Error(data.errors?data.errors.join(' '):'Upload failed');
+          const f=document.createElement('form');f.method='post';f.style.display='none';
+          f.innerHTML='<input type="hidden" name="action" value="set_image"><input type="hidden" name="name"><input type="hidden" name="image_id">';
+          f.querySelector('input[name="name"]').value=name;f.querySelector('input[name="image_id"]').value=String(data.id);
+          document.body.appendChild(f);f.submit();
+        }catch(e){alert('Could not upload: '+e.message);btn.textContent=orig}
+      }
+      document.addEventListener('change',e=>{if(e.target.classList.contains('col-file'))uploadCol(e.target)});
+    </script>
 
     <h2 style="font-family:Georgia,serif;font-weight:400;margin-top:32px">Add a collection</h2>
     <form method="post" style="display:flex;gap:10px;flex-wrap:wrap;max-width:620px;align-items:center">
@@ -202,6 +246,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return ok(
         parent ? `“${name}” moved under “${parent}”.` : `“${name}” moved to the top level.`,
       );
+    }
+
+    if (action === "set_image") {
+      const name = String(form.get("name") ?? "");
+      const raw = String(form.get("image_id") ?? "");
+      const id = raw ? Number(raw) : null;
+      if (name) await setCollectionImage(env, name, Number.isInteger(id) && (id as number) > 0 ? id : null);
+      return ok(id ? `Photo added to “${name}”.` : `Photo removed from “${name}”.`);
     }
 
     if (action === "toggle_hidden") {

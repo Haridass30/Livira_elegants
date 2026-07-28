@@ -18,6 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     parent: c.parent,
     position: c.position,
     productCount: c.product_count ?? 0,
+    imageId: c.image_id ?? null,
   }));
   return json(payload, 200, { "Cache-Control": "no-store" });
 };

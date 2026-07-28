@@ -111,6 +111,7 @@ const categories = defineCollection({
     parent: z.string().nullable().default(null),
     position: z.number().default(0),
     productCount: z.number().default(0),
+    imageId: z.number().nullable().default(null),
   }),
 });
 
