@@ -328,12 +328,21 @@ export interface CollectionNode extends CollectionRow {
 }
 
 export async function listCollections(env: Env): Promise<CollectionRow[]> {
-  const res = await env.DB.prepare(
-    `SELECT c.name, c.position, c.parent, c.hidden, c.image_id,
-            (SELECT COUNT(*) FROM products p WHERE p.category = c.name AND p.active = 1) AS product_count
-     FROM collections c ORDER BY c.position, c.name`,
-  ).all<CollectionRow>();
-  return res.results ?? [];
+  const count = `(SELECT COUNT(*) FROM products p WHERE p.category = c.name AND p.active = 1) AS product_count`;
+  try {
+    const res = await env.DB.prepare(
+      `SELECT c.name, c.position, c.parent, c.hidden, c.image_id, ${count}
+       FROM collections c ORDER BY c.position, c.name`,
+    ).all<CollectionRow>();
+    return res.results ?? [];
+  } catch {
+    // The image_id column (migration 0007) may not be applied yet — fall back.
+    const res = await env.DB.prepare(
+      `SELECT c.name, c.position, c.parent, c.hidden, ${count}
+       FROM collections c ORDER BY c.position, c.name`,
+    ).all<Omit<CollectionRow, "image_id">>();
+    return (res.results ?? []).map((r) => ({ ...r, image_id: null }));
+  }
 }
 
 /** Show/hide a collection in the shop (disable without deleting). */
