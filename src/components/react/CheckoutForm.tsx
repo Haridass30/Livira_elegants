@@ -3,16 +3,8 @@ import { useStore } from "@nanostores/react";
 import { $cart, $cartSubtotal, clearCart } from "../../stores/cart";
 import { formatINR } from "../../lib/format";
 import { site } from "../../config";
+import QRCode from "qrcode";
 import type { CheckoutMethod, CustomerInput } from "../../lib/types";
-
-// Razorpay Checkout is injected from its CDN script (handles all card data).
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-const RAZORPAY_SDK = "https://checkout.razorpay.com/v1/checkout.js";
 
 type FieldErrors = Partial<Record<keyof CustomerInput, string>>;
 
@@ -24,6 +16,7 @@ interface StoreConfig {
   freeShippingThreshold: number;
   flatShippingFee: number;
   disabledProducts: string[];
+  upi?: { id: string; name: string };
 }
 
 export default function CheckoutForm() {
@@ -44,6 +37,8 @@ export default function CheckoutForm() {
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [upiRef, setUpiRef] = useState("");
+  const [upiQr, setUpiQr] = useState("");
 
   // Coupon state — validated server-side; this is display only.
   const [couponInput, setCouponInput] = useState("");
@@ -108,6 +103,30 @@ export default function CheckoutForm() {
           ? "cod"
           : "online";
 
+  // UPI deep-link + QR for manual online payment (opens the customer's UPI app).
+  const upiId = config?.upi?.id ?? "";
+  const upiLink = useMemo(() => {
+    if (!upiId) return "";
+    const p = new URLSearchParams({
+      pa: upiId,
+      pn: config?.upi?.name || site.name,
+      am: String(total),
+      cu: "INR",
+      tn: `${site.name} order`,
+    });
+    return `upi://pay?${p.toString()}`;
+  }, [upiId, config?.upi?.name, total]);
+
+  useEffect(() => {
+    if (!upiLink) {
+      setUpiQr("");
+      return;
+    }
+    QRCode.toDataURL(upiLink, { margin: 1, width: 360 })
+      .then(setUpiQr)
+      .catch(() => setUpiQr(""));
+  }, [upiLink]);
+
   async function applyCoupon() {
     const code = couponInput.trim();
     if (!code) return;
@@ -163,17 +182,6 @@ export default function CheckoutForm() {
     return Object.keys(e).length === 0;
   }
 
-  function loadRazorpay(): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const s = document.createElement("script");
-      s.src = RAZORPAY_SDK;
-      s.onload = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.body.appendChild(s);
-    });
-  }
-
   function goToConfirmation(ref: string) {
     clearCart();
     window.location.href = `/order/confirmation?ref=${encodeURIComponent(ref)}`;
@@ -183,6 +191,11 @@ export default function CheckoutForm() {
     ev.preventDefault();
     setServerError(null);
     if (!validate()) return;
+    // Online = manual UPI: require the reference the customer got after paying.
+    if (effectiveMethod === "online" && upiRef.trim().length < 6) {
+      setServerError("Please pay via UPI and enter the reference number below.");
+      return;
+    }
     setBusy(true);
 
     // Compose the full delivery address from the structured fields.
@@ -202,6 +215,7 @@ export default function CheckoutForm() {
           method: effectiveMethod,
           customer: customerToSend,
           couponCode: coupon?.code,
+          upiRef: effectiveMethod === "online" ? upiRef.trim() : undefined,
           // Server only trusts slug + qty; it re-prices everything.
           items: lines.map((l) => ({ slug: l.slug, qty: l.qty })),
         }),
@@ -218,61 +232,8 @@ export default function CheckoutForm() {
         return;
       }
 
-      // ----- COD: order recorded server-side, we're done. -----
-      if (effectiveMethod === "cod") {
-        goToConfirmation(data.order_ref);
-        return;
-      }
-
-      // ----- Online: open Razorpay Checkout with the server's order. -----
-      const ok = await loadRazorpay();
-      if (!ok || !window.Razorpay) {
-        setServerError("Could not load the payment window. Please retry.");
-        setBusy(false);
-        return;
-      }
-
-      const rzp = new window.Razorpay({
-        key: data.razorpay_key_id,
-        order_id: data.razorpay_order_id,
-        amount: data.amount, // paise, from the server
-        currency: data.currency,
-        name: site.name,
-        description: `Order ${data.order_ref}`,
-        image: "/og-default.jpg",
-        prefill: {
-          name: customer.name,
-          email: customer.email,
-          contact: customer.phone,
-        },
-        notes: { order_ref: data.order_ref },
-        theme: { color: "#cf9a6e" },
-        handler: async (resp: {
-          razorpay_order_id: string;
-          razorpay_payment_id: string;
-          razorpay_signature: string;
-        }) => {
-          // Verify the signature server-side before trusting the payment.
-          const v = await fetch("/api/orders/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(resp),
-          });
-          const vdata = await v.json();
-          if (v.ok && vdata.status === "paid") {
-            goToConfirmation(vdata.order_ref ?? data.order_ref);
-          } else {
-            setServerError(
-              "Payment could not be verified. If money was deducted, contact us with your reference.",
-            );
-            setBusy(false);
-          }
-        },
-        modal: {
-          ondismiss: () => setBusy(false),
-        },
-      });
-      rzp.open();
+      // Order recorded (COD or UPI-pending) — go to the confirmation page.
+      goToConfirmation(data.order_ref);
     } catch {
       setServerError("Something went wrong. Please check your connection and retry.");
       setBusy(false);
@@ -367,10 +328,10 @@ export default function CheckoutForm() {
             checked={effectiveMethod === "online"}
             onSelect={() => onlineEnabled && setMethod("online")}
             disabled={!onlineEnabled}
-            title="Pay online"
+            title="Pay online (UPI)"
             subtitle={
               onlineEnabled
-                ? "Card, UPI, netbanking — secured by Razorpay."
+                ? "Pay to our UPI id from any UPI app (GPay, PhonePe, Paytm…)."
                 : "Online payment is temporarily unavailable."
             }
           />
@@ -390,10 +351,63 @@ export default function CheckoutForm() {
           />
         </div>
 
+        {effectiveMethod === "online" && (
+          <div className="mt-4 border hairline p-5">
+            {upiId ? (
+              <>
+                <p className="font-serif text-lg">
+                  Pay {formatINR(total)} via UPI
+                </p>
+                <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+                  {upiQr && (
+                    <img
+                      src={upiQr}
+                      alt="Scan to pay via UPI"
+                      width={150}
+                      height={150}
+                      className="border hairline"
+                    />
+                  )}
+                  <div className="text-center text-sm sm:text-left">
+                    <p className="text-charcoal/70">Scan with any UPI app, or pay to:</p>
+                    <p className="mt-2 select-all font-medium text-charcoal">{upiId}</p>
+                    {config?.upi?.name && (
+                      <p className="text-charcoal/55">{config.upi.name}</p>
+                    )}
+                    {upiLink && (
+                      <a href={upiLink} className="btn btn-primary mt-3 sm:hidden">
+                        Open UPI app
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <label className="mt-5 block text-xs uppercase tracking-[0.12em] text-charcoal/60">
+                  UPI reference number (after you pay)
+                  <input
+                    value={upiRef}
+                    onChange={(e) => setUpiRef(e.target.value)}
+                    placeholder="e.g. 12-digit UTR / reference"
+                    inputMode="numeric"
+                    className="mt-2 w-full border hairline bg-ivory px-3 py-2.5 normal-case tracking-normal text-charcoal outline-none focus:border-champagne"
+                  />
+                </label>
+                <p className="mt-2 text-xs text-charcoal/55">
+                  Enter the reference/UTR from your UPI app so we can match your payment. Your
+                  order is confirmed once we verify it (usually within a few hours).
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-charcoal/60">
+                Online payment isn't set up yet — please choose Cash on Delivery, or contact us.
+              </p>
+            )}
+          </div>
+        )}
+
         {serverError && (
           <p
             role="alert"
-            className="mt-6 border border-red-800/60 bg-red-950/40 px-4 py-3 text-sm text-red-300"
+            className="mt-6 border border-[#d8a] bg-[#faefe9] px-4 py-3 text-sm text-[#8a2f2f]"
           >
             {serverError}
           </p>
@@ -491,7 +505,7 @@ export default function CheckoutForm() {
             ? "Processing…"
             : effectiveMethod === "cod"
               ? "Place COD order"
-              : `Pay ${formatINR(total)}`}
+              : "I've paid — place order"}
         </button>
         <p className="mt-3 text-center text-[11px] leading-relaxed text-charcoal/50">
           Prices are confirmed on our server at checkout.

@@ -8,12 +8,13 @@
 /// <reference types="@cloudflare/workers-types" />
 import type { Env } from "../_lib/env";
 import { json } from "../_lib/http";
-import { getSettings, getDisabledSlugs } from "../_lib/settings";
+import { getSettings, getDisabledSlugs, getUpi } from "../_lib/settings";
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
-  const [settings, disabled] = await Promise.all([
+  const [settings, disabled, upi] = await Promise.all([
     getSettings(env),
     getDisabledSlugs(env),
+    getUpi(env),
   ]);
   return json(
     {
@@ -23,6 +24,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       freeShippingThreshold: settings.freeShippingThreshold,
       flatShippingFee: settings.flatShippingFee,
       disabledProducts: [...disabled],
+      upi,
     },
     200,
     { "Cache-Control": "no-store" },

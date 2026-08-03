@@ -98,7 +98,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
           .map(
             (o) => `<tr>
         <td>${fmtDate(esc(o.created_at))}</td>
-        <td><strong>${esc(o.order_ref)}</strong>${o.razorpay_payment_id ? `<br><span class="muted" style="font-size:11px">${esc(o.razorpay_payment_id)}</span>` : ""}</td>
+        <td><strong>${esc(o.order_ref)}</strong>${o.notes ? `<br><span style="font-size:11px;color:#8a6d1e">${esc(o.notes)}</span>` : ""}${o.razorpay_payment_id ? `<br><span class="muted" style="font-size:11px">${esc(o.razorpay_payment_id)}</span>` : ""}</td>
         <td>${esc(o.customer_name)}<br><span class="muted" style="font-size:12px">${esc(o.phone)}<br>${esc(o.email)}</span><br><span class="muted" style="font-size:12px">${esc(o.address)}, ${esc(o.pincode)}</span><br><a href="/admin/orders/edit?ref=${encodeURIComponent(o.order_ref)}" style="font-size:11px">✎ Edit details</a></td>
         <td>${itemsCell(o.items)}</td>
         <td>${o.method === "cod" ? "COD" : "Online"}</td>

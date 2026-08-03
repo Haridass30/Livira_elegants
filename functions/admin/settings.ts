@@ -9,16 +9,17 @@ import { adminPage, htmlResponse, esc } from "../_lib/adminHtml";
 import {
   getSettings,
   saveSettings,
-  getPaymentKeys,
   setRawSetting,
   getDeployHookUrl,
+  getUpi,
+  saveUpi,
 } from "../_lib/settings";
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const saved = new URL(request.url).searchParams.get("saved");
-  const [s, keys, hookUrl] = await Promise.all([
+  const [s, upi, hookUrl] = await Promise.all([
     getSettings(env),
-    getPaymentKeys(env),
+    getUpi(env),
     getDeployHookUrl(env),
   ]);
 
@@ -52,17 +53,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
           <input name="free_shipping_threshold" type="number" min="0" value="${esc(s.freeShippingThreshold)}"/></div>
       </div>
 
-      <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Razorpay (online payment)</h2>
+      <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">UPI (online payment)</h2>
       <p class="muted" style="font-size:13px;margin:0 0 10px">
-        From your Razorpay dashboard → Settings → API Keys. Use <strong>test keys</strong>
-        (rzp_test_…) until you're ready to go live.
+        Online payment is <strong>manual UPI</strong> — customers pay to your UPI id and enter the
+        reference; you verify it and mark the order <strong>paid</strong>. Enter the UPI id money should go to.
       </p>
-      <div class="field"><label>Key ID</label>
-        <input name="razorpay_key_id" value="${esc(keys.keyId)}" placeholder="rzp_test_…"/></div>
-      <div class="field"><label>Key Secret ${keys.keySecret ? `<span style="color:#2f6b3a">(saved ✓ — leave blank to keep)</span>` : `<span style="color:#8a2f2f">(not set)</span>`}</label>
-        <input name="razorpay_key_secret" type="password" value="" placeholder="${keys.keySecret ? "••••••••••••" : "paste the key secret"}" autocomplete="new-password"/></div>
-      <div class="field"><label>Webhook Secret ${keys.webhookSecret ? `<span style="color:#2f6b3a">(saved ✓ — leave blank to keep)</span>` : `<span class="muted">(optional)</span>`}</label>
-        <input name="razorpay_webhook_secret" type="password" value="" placeholder="${keys.webhookSecret ? "••••••••••••" : "only if you use webhooks"}" autocomplete="new-password"/></div>
+      <div class="field"><label>Your UPI id</label>
+        <input name="upi_id" value="${esc(upi.id)}" placeholder="e.g. livira@okhdfcbank"/></div>
+      <div class="field"><label>Payee name (shown to customer)</label>
+        <input name="upi_name" value="${esc(upi.name)}" placeholder="e.g. Livira Elegants"/></div>
 
       <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Publishing</h2>
       <p class="muted" style="font-size:13px;margin:0 0 10px">
@@ -99,13 +98,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     freeShippingThreshold: num("free_shipping_threshold", current.freeShippingThreshold),
   });
 
-  // Payment keys + deploy hook. Blank secret fields keep the stored value.
-  const keyId = String(form.get("razorpay_key_id") ?? "").trim();
-  await setRawSetting(env, "razorpay_key_id", keyId);
-  const secret = String(form.get("razorpay_key_secret") ?? "").trim();
-  if (secret) await setRawSetting(env, "razorpay_key_secret", secret);
-  const webhook = String(form.get("razorpay_webhook_secret") ?? "").trim();
-  if (webhook) await setRawSetting(env, "razorpay_webhook_secret", webhook);
+  // UPI details + deploy hook.
+  await saveUpi(
+    env,
+    String(form.get("upi_id") ?? ""),
+    String(form.get("upi_name") ?? ""),
+  );
   await setRawSetting(
     env,
     "deploy_hook_url",

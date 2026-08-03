@@ -21,6 +21,7 @@ export interface OrderSummary {
   lines: { name: string; qty: number; lineTotal: number }[];
   couponCode?: string;
   discount?: number;
+  notes?: string;
   customer: {
     name: string;
     phone: string;
@@ -54,6 +55,7 @@ export async function notifyOwner(env: Env, order: OrderSummary): Promise<void> 
     <div style="font-family:Georgia,serif;color:#2b2724;max-width:560px">
       <h2 style="font-weight:normal">New order · ${order.orderRef}</h2>
       <p><strong>${methodLabel}</strong> — status: ${order.status}</p>
+      ${order.notes ? `<p style="background:#f6efdd;padding:8px 12px;border-radius:6px">${order.notes} — please verify before dispatch.</p>` : ""}
       <table style="width:100%;border-collapse:collapse;margin:16px 0">
         ${itemsHtml}
         <tr><td style="padding-top:8px">Subtotal</td><td align="right" style="padding-top:8px">${fmt(order.subtotal)}</td></tr>

@@ -14,7 +14,6 @@ import type { Env } from "../../_lib/env";
 import { pricingFromEnv } from "../../_lib/env";
 import { json, badRequest, serverError } from "../../_lib/http";
 import { makeOrderRef } from "../../_lib/crypto";
-import { createRazorpayOrder } from "../../_lib/razorpay";
 import { insertOrder } from "../../_lib/db";
 import { notifyOwner } from "../../_lib/email";
 import {
@@ -22,7 +21,6 @@ import {
   getCoupon,
   evaluateCoupon,
   incrementCouponUse,
-  getPaymentKeys,
 } from "../../_lib/settings";
 import { loadCatalog, decrementStock } from "../../_lib/catalogDb";
 import {
@@ -31,7 +29,6 @@ import {
   isCodAllowed,
   isPincodeServiceable,
 } from "../../../src/lib/pricing";
-import { toPaise } from "../../../src/lib/format";
 import type { CreateOrderRequest, CheckoutMethod } from "../../../src/lib/types";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -128,34 +125,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ ok: true, order_ref: orderRef, method: "cod" });
     }
 
-    // ---------------- Online (Razorpay) ----------------
-    const keys = await getPaymentKeys(env);
-    const rzpOrder = await createRazorpayOrder(
-      keys,
-      toPaise(grandTotal),
-      totals.currency,
-      orderRef,
-      { order_ref: orderRef },
-    );
-
-    await insertOrder(env, {
-      ...baseOrder,
-      status: "pending",
-      razorpayOrderId: rzpOrder.id,
-    });
+    // ---------------- Online (manual UPI) ----------------
+    // The customer pays to the store's UPI id and enters the payment reference;
+    // the order is recorded as `pending` until the owner verifies the money.
+    const upiRef = String((body as { upiRef?: string }).upiRef ?? "").trim();
+    if (!upiRef) {
+      return badRequest("Please enter the UPI reference number after paying.");
+    }
+    const notes = `UPI ref: ${upiRef}`;
+    await insertOrder(env, { ...baseOrder, status: "pending", notes });
     await decrementStock(env, lines);
     if (couponCode) await incrementCouponUse(env, couponCode);
+    await notifyOwner(env, { ...baseOrder, status: "pending", notes });
 
-    // Owner is notified only once payment is verified (see verify.ts).
-    return json({
-      ok: true,
-      order_ref: orderRef,
-      method: "online",
-      razorpay_order_id: rzpOrder.id,
-      razorpay_key_id: keys.keyId,
-      amount: rzpOrder.amount, // paise
-      currency: rzpOrder.currency,
-    });
+    return json({ ok: true, order_ref: orderRef, method: "online" });
   } catch (err) {
     console.error("[create] error", err);
     return serverError("Could not place the order. Please try again.");

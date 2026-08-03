@@ -115,6 +115,26 @@ export async function getDeployHookUrl(env: Env): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ *
+ * UPI (manual online payment) — the merchant's UPI id + payee name.
+ * Public (the UPI id is how customers pay); no gateway involved.
+ * ------------------------------------------------------------------ */
+
+export async function getUpi(env: Env): Promise<{ id: string; name: string }> {
+  const [id, name] = await Promise.all([
+    getRawSetting(env, "upi_id"),
+    getRawSetting(env, "upi_name"),
+  ]);
+  return { id, name };
+}
+
+export async function saveUpi(env: Env, id: string, name: string): Promise<void> {
+  await Promise.all([
+    setRawSetting(env, "upi_id", id.trim()),
+    setRawSetting(env, "upi_name", name.trim()),
+  ]);
+}
+
+/* ------------------------------------------------------------------ *
  * Bento — up to 5 admin-uploaded image tiles (with links) shown in a
  * varied-size grid on the homepage. Box 0 is the large feature tile.
  * ------------------------------------------------------------------ */

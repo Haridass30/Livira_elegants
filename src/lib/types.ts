@@ -47,6 +47,8 @@ export interface CreateOrderRequest {
   method: CheckoutMethod;
   /** Optional coupon code; validated & applied server-side only. */
   couponCode?: string;
+  /** UPI transaction reference the customer entered after paying (online). */
+  upiRef?: string;
 }
 
 export interface VerifyOrderRequest {
