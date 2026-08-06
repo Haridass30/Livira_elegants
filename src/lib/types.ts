@@ -4,8 +4,13 @@ export type CheckoutMethod = "online" | "cod";
 
 export type OrderStatus =
   | "pending"
+  /** Manual UPI: reference submitted, money not yet matched by the owner. */
+  | "awaiting_payment"
   | "paid"
   | "cod_pending"
+  /** Post-payment fulfilment states the admin can set. */
+  | "shipped"
+  | "delivered"
   | "failed"
   | "cancelled";
 
@@ -49,6 +54,8 @@ export interface CreateOrderRequest {
   couponCode?: string;
   /** UPI transaction reference the customer entered after paying (online). */
   upiRef?: string;
+  /** Optional payment screenshot as a `data:image/...;base64,…` URL (online). */
+  paymentProof?: string;
 }
 
 export interface VerifyOrderRequest {

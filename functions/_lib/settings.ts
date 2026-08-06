@@ -15,6 +15,12 @@ export interface StoreSettings {
   codMaxOrderValue: number;
   freeShippingThreshold: number;
   flatShippingFee: number;
+  /** Manual UPI: require a payment screenshot alongside the reference. */
+  upiProofRequired: boolean;
+  /** Manual UPI: hours an unverified order holds stock before auto-cancelling. */
+  upiHoldHours: number;
+  /** Manual UPI: how many unverified orders one phone number may have open. */
+  upiMaxOpenPerPhone: number;
 }
 
 const SETTING_DEFAULTS: StoreSettings = {
@@ -23,6 +29,9 @@ const SETTING_DEFAULTS: StoreSettings = {
   codMaxOrderValue: 20000,
   freeShippingThreshold: 2500,
   flatShippingFee: 99,
+  upiProofRequired: true,
+  upiHoldHours: 24,
+  upiMaxOpenPerPhone: 2,
 };
 
 export async function getSettings(env: Env): Promise<StoreSettings> {
@@ -42,6 +51,13 @@ export async function getSettings(env: Env): Promise<StoreSettings> {
       codMaxOrderValue: num("cod_max_order_value", SETTING_DEFAULTS.codMaxOrderValue),
       freeShippingThreshold: num("free_shipping_threshold", SETTING_DEFAULTS.freeShippingThreshold),
       flatShippingFee: num("flat_shipping_fee", SETTING_DEFAULTS.flatShippingFee),
+      // Proof defaults to ON: it is the owner's only real evidence of payment.
+      upiProofRequired: map.get("upi_proof_required") !== "0",
+      upiHoldHours: Math.max(1, num("upi_hold_hours", SETTING_DEFAULTS.upiHoldHours)),
+      upiMaxOpenPerPhone: Math.max(
+        1,
+        num("upi_max_open_per_phone", SETTING_DEFAULTS.upiMaxOpenPerPhone),
+      ),
     };
   } catch {
     // Settings table missing (migration not applied) — fall back to defaults.
@@ -56,6 +72,9 @@ export async function saveSettings(env: Env, s: StoreSettings): Promise<void> {
     ["cod_max_order_value", String(Math.max(0, Math.floor(s.codMaxOrderValue)))],
     ["free_shipping_threshold", String(Math.max(0, Math.floor(s.freeShippingThreshold)))],
     ["flat_shipping_fee", String(Math.max(0, Math.floor(s.flatShippingFee)))],
+    ["upi_proof_required", s.upiProofRequired ? "1" : "0"],
+    ["upi_hold_hours", String(Math.max(1, Math.floor(s.upiHoldHours)))],
+    ["upi_max_open_per_phone", String(Math.max(1, Math.floor(s.upiMaxOpenPerPhone)))],
   ];
   const stmt = env.DB.prepare(
     `INSERT INTO settings (key, value) VALUES (?, ?)

@@ -17,6 +17,37 @@ interface StoreConfig {
   flatShippingFee: number;
   disabledProducts: string[];
   upi?: { id: string; name: string };
+  /** Owner requires a payment screenshot with the UPI reference. */
+  upiProofRequired?: boolean;
+}
+
+/** A UTR is exactly 12 digits — mirrors functions/_lib/upi.ts. */
+const UTR_DIGITS = 12;
+
+/**
+ * Shrink a screenshot to something worth emailing around. Falls back to the
+ * raw file when the browser can't decode it (older iOS HEIC, mainly).
+ */
+async function toProofDataUrl(file: File): Promise<string> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    return canvas.toDataURL("image/jpeg", 0.72);
+  } catch {
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
 }
 
 export default function CheckoutForm() {
@@ -39,6 +70,8 @@ export default function CheckoutForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [upiRef, setUpiRef] = useState("");
   const [upiQr, setUpiQr] = useState("");
+  const [proof, setProof] = useState<{ dataUrl: string; name: string } | null>(null);
+  const [proofBusy, setProofBusy] = useState(false);
 
   // Coupon state — validated server-side; this is display only.
   const [couponInput, setCouponInput] = useState("");
@@ -105,6 +138,8 @@ export default function CheckoutForm() {
 
   // UPI deep-link + QR for manual online payment (opens the customer's UPI app).
   const upiId = config?.upi?.id ?? "";
+  const proofRequired = config?.upiProofRequired ?? true;
+  const upiRefDigits = upiRef.replace(/\D/g, "");
   const upiLink = useMemo(() => {
     if (!upiId) return "";
     const p = new URLSearchParams({
@@ -182,19 +217,50 @@ export default function CheckoutForm() {
     return Object.keys(e).length === 0;
   }
 
-  function goToConfirmation(ref: string) {
+  async function handleProofPick(file: File | undefined) {
+    if (!file) return;
+    setServerError(null);
+    setProofBusy(true);
+    try {
+      const dataUrl = await toProofDataUrl(file);
+      // Rough base64 → bytes; the server enforces the real 1.2 MB limit.
+      if (dataUrl.length * 0.75 > 1_200_000) {
+        setServerError("That screenshot is too large — please attach a smaller one.");
+      } else {
+        setProof({ dataUrl, name: file.name });
+      }
+    } catch {
+      setServerError("We couldn't read that image. Please try another screenshot.");
+    } finally {
+      setProofBusy(false);
+    }
+  }
+
+  function goToConfirmation(ref: string, status: string) {
     clearCart();
-    window.location.href = `/order/confirmation?ref=${encodeURIComponent(ref)}`;
+    window.location.href = `/order/confirmation?ref=${encodeURIComponent(
+      ref,
+    )}&status=${encodeURIComponent(status)}`;
   }
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     setServerError(null);
     if (!validate()) return;
-    // Online = manual UPI: require the reference the customer got after paying.
-    if (effectiveMethod === "online" && upiRef.trim().length < 6) {
-      setServerError("Please pay via UPI and enter the reference number below.");
-      return;
+    // Online = manual UPI. The reference is only a claim — the server records
+    // the order as awaiting verification — but a value that can't be a UTR is
+    // caught here so it never reaches the owner's queue.
+    if (effectiveMethod === "online") {
+      if (upiRefDigits.length !== UTR_DIGITS) {
+        setServerError(
+          `The UPI reference is exactly ${UTR_DIGITS} digits — copy the UTR from your payment app.`,
+        );
+        return;
+      }
+      if (proofRequired && !proof) {
+        setServerError("Please attach the payment screenshot from your UPI app.");
+        return;
+      }
     }
     setBusy(true);
 
@@ -215,7 +281,9 @@ export default function CheckoutForm() {
           method: effectiveMethod,
           customer: customerToSend,
           couponCode: coupon?.code,
-          upiRef: effectiveMethod === "online" ? upiRef.trim() : undefined,
+          upiRef: effectiveMethod === "online" ? upiRefDigits : undefined,
+          paymentProof:
+            effectiveMethod === "online" && proof ? proof.dataUrl : undefined,
           // Server only trusts slug + qty; it re-prices everything.
           items: lines.map((l) => ({ slug: l.slug, qty: l.qty })),
         }),
@@ -232,8 +300,9 @@ export default function CheckoutForm() {
         return;
       }
 
-      // Order recorded (COD or UPI-pending) — go to the confirmation page.
-      goToConfirmation(data.order_ref);
+      // Order recorded. For manual UPI that means "awaiting_payment", not a
+      // sale — the confirmation page words itself from this status.
+      goToConfirmation(data.order_ref, data.status ?? "");
     } catch {
       setServerError("Something went wrong. Please check your connection and retry.");
       setBusy(false);
@@ -331,7 +400,7 @@ export default function CheckoutForm() {
             title="Pay online (UPI)"
             subtitle={
               onlineEnabled
-                ? "Pay to our UPI id from any UPI app (GPay, PhonePe, Paytm…)."
+                ? "Pay to our UPI id from any UPI app, then send us the reference — we confirm once we see the money."
                 : "Online payment is temporarily unavailable."
             }
           />
@@ -382,18 +451,72 @@ export default function CheckoutForm() {
                   </div>
                 </div>
                 <label className="mt-5 block text-xs uppercase tracking-[0.12em] text-charcoal/60">
-                  UPI reference number (after you pay)
+                  UPI reference / UTR — {UTR_DIGITS} digits
                   <input
                     value={upiRef}
-                    onChange={(e) => setUpiRef(e.target.value)}
-                    placeholder="e.g. 12-digit UTR / reference"
+                    onChange={(e) =>
+                      setUpiRef(e.target.value.replace(/\D/g, "").slice(0, UTR_DIGITS))
+                    }
+                    placeholder="e.g. 412345678901"
                     inputMode="numeric"
-                    className="mt-2 w-full border hairline bg-ivory px-3 py-2.5 normal-case tracking-normal text-charcoal outline-none focus:border-champagne"
+                    autoComplete="off"
+                    maxLength={UTR_DIGITS}
+                    aria-describedby="upi-ref-help"
+                    className="mt-2 w-full border hairline bg-ivory px-3 py-2.5 font-mono normal-case tracking-normal text-charcoal outline-none focus:border-champagne"
                   />
                 </label>
-                <p className="mt-2 text-xs text-charcoal/55">
-                  Enter the reference/UTR from your UPI app so we can match your payment. Your
-                  order is confirmed once we verify it (usually within a few hours).
+                <p id="upi-ref-help" className="mt-1.5 text-xs text-charcoal/55">
+                  {upiRefDigits.length > 0 && upiRefDigits.length < UTR_DIGITS
+                    ? `${UTR_DIGITS - upiRefDigits.length} more digit${
+                        UTR_DIGITS - upiRefDigits.length === 1 ? "" : "s"
+                      } — open the payment in your UPI app and copy the UTR / transaction reference.`
+                    : "Open the completed payment in your UPI app and copy the UTR / transaction reference."}
+                </p>
+
+                {/* Payment screenshot — the owner's evidence when matching the credit. */}
+                <div className="mt-5">
+                  <p className="text-xs uppercase tracking-[0.12em] text-charcoal/60">
+                    Payment screenshot {proofRequired ? "" : "(optional)"}
+                  </p>
+                  {proof ? (
+                    <div className="mt-2 flex items-center gap-3 border hairline bg-ivory p-2.5">
+                      <img
+                        src={proof.dataUrl}
+                        alt="Your payment screenshot"
+                        className="h-14 w-14 object-cover"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-xs text-charcoal/70">
+                        {proof.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setProof(null)}
+                        className="text-xs text-charcoal/50 underline hover:text-charcoal"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleProofPick(e.target.files?.[0])}
+                      disabled={proofBusy}
+                      className="mt-2 w-full border hairline bg-ivory px-3 py-2.5 text-xs text-charcoal/70 file:mr-3 file:border-0 file:bg-charcoal file:px-3 file:py-1.5 file:text-xs file:text-ivory"
+                    />
+                  )}
+                  <p className="mt-1.5 text-xs text-charcoal/55">
+                    {proofBusy
+                      ? "Preparing your screenshot…"
+                      : "The success screen from your UPI app, showing the amount and reference."}
+                  </p>
+                </div>
+
+                <p className="mt-5 border-l-2 border-champagne bg-champagne/5 px-3 py-2.5 text-xs leading-relaxed text-charcoal/70">
+                  <strong className="text-charcoal">Your order isn't confirmed yet.</strong> We hold
+                  your pieces while we match this payment against our account — usually within a few
+                  hours. You'll get an email the moment it's confirmed, and another if we can't find
+                  it. Nothing is dispatched before then.
                 </p>
               </>
             ) : (
@@ -505,10 +628,12 @@ export default function CheckoutForm() {
             ? "Processing…"
             : effectiveMethod === "cod"
               ? "Place COD order"
-              : "I've paid — place order"}
+              : "Submit payment for verification"}
         </button>
         <p className="mt-3 text-center text-[11px] leading-relaxed text-charcoal/50">
-          Prices are confirmed on our server at checkout.
+          {effectiveMethod === "online"
+            ? "Prices are confirmed on our server. Orders are dispatched only after we verify your payment."
+            : "Prices are confirmed on our server at checkout."}
           {/* TODO(owner): optional — add a phone OTP step before COD here. */}
         </p>
       </aside>

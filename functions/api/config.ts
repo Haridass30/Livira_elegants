@@ -25,6 +25,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       flatShippingFee: settings.flatShippingFee,
       disabledProducts: [...disabled],
       upi,
+      upiProofRequired: settings.upiProofRequired,
     },
     200,
     { "Cache-Control": "no-store" },

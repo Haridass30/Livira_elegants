@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit && tsc -p functions/tsconfig.json",
     "pages:dev": "npm run build && wrangler pages dev --live-reload --port=8788",
     "db:local": "wrangler d1 execute livira-db --local --file=./migrations/0001_init.sql",
-    "db:remote": "wrangler d1 execute livira-db --remote --file=./migrations/0001_init.sql"
+    "db:remote": "wrangler d1 execute livira-db --remote --file=./migrations/0001_init.sql",
+    "db:local:0008": "wrangler d1 execute livira-db --local --file=./migrations/0008_payment_verification.sql",
+    "db:remote:0008": "wrangler d1 execute livira-db --remote --file=./migrations/0008_payment_verification.sql"
   },
   "dependencies": {
     "@astrojs/react": "^4.2.1",

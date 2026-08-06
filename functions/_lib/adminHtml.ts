@@ -70,6 +70,15 @@ export function adminPage(opts: {
   .s-paid{background:#e4f0e6;color:#2f6b3a}
   .s-cod_pending{background:#f3ecd7;color:#8a6d1e}
   .s-pending{background:#eee;color:#666}
+  .s-awaiting_payment{background:#fbe8cf;color:#8a4b0e}
+  .verify{background:#fff8ec;border:1px solid #e6cf9f;border-radius:8px;padding:10px 12px;margin-top:8px;max-width:320px}
+  .verify p{margin:0 0 6px;font-size:12px;line-height:1.5}
+  .verify code{font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.04em}
+  .verify input[type=text]{width:100%;padding:7px 9px;border:1px solid rgba(43,39,36,.22);margin:6px 0}
+  .verify .row{display:flex;gap:6px}
+  .verify button{flex:1;padding:8px 6px;font-size:12px}
+  .verify button.no{background:#8a2f2f}
+  .verify button.yes{background:#2f6b3a}
   .s-shipped{background:#e2eaf3;color:#2f4d78}
   .s-delivered{background:#dbeadf;color:#276b3a}
   .s-cancelled,.s-failed{background:#f3dede;color:#8a2f2f}

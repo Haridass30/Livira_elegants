@@ -80,6 +80,24 @@ export async function decrementStock(
   await env.DB.batch(lines.map((l) => stmt.bind(l.qty, l.slug)));
 }
 
+/**
+ * Put stock back when an order that was holding it falls through — a rejected
+ * or expired manual-UPI payment, or a cancelled order. Callers must gate this
+ * on `releaseStockHold()` so the units are only ever returned once.
+ */
+export async function restoreStock(
+  env: Env,
+  lines: { slug: string; qty: number }[],
+): Promise<void> {
+  if (!lines.length) return;
+  const stmt = env.DB.prepare(
+    `UPDATE products
+       SET stock_qty = stock_qty + ?, updated_at = datetime('now')
+     WHERE slug = ? AND stock_qty IS NOT NULL`,
+  );
+  await env.DB.batch(lines.map((l) => stmt.bind(l.qty, l.slug)));
+}
+
 /* ------------------------------------------------------------------ *
  * Products CRUD (admin)
  * ------------------------------------------------------------------ */

@@ -40,7 +40,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       <div class="field" style="display:flex;align-items:center;gap:10px;margin:10px 0">
         <input type="checkbox" id="online" name="online_enabled" value="1"${check(s.onlineEnabled)} style="width:18px;height:18px"/>
         <label for="online" style="margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:inherit">
-          Online payment (Razorpay) enabled</label>
+          Online payment (manual UPI) enabled</label>
       </div>
 
       <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Limits &amp; shipping</h2>
@@ -62,6 +62,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         <input name="upi_id" value="${esc(upi.id)}" placeholder="e.g. livira@okhdfcbank"/></div>
       <div class="field"><label>Payee name (shown to customer)</label>
         <input name="upi_name" value="${esc(upi.name)}" placeholder="e.g. Livira Elegants"/></div>
+
+      <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Payment verification</h2>
+      <p class="muted" style="font-size:13px;margin:0 0 10px">
+        A UPI reference cannot be checked automatically — no bank or NPCI service exposes one —
+        so an online order lands in <strong>Awaiting payment</strong> and holds its stock until
+        <em>you</em> find the credit in your bank app and confirm it. These settings decide how
+        much a customer must supply and how long an unconfirmed order may sit.
+      </p>
+      <div class="field" style="display:flex;align-items:center;gap:10px;margin:10px 0">
+        <input type="checkbox" id="proof" name="upi_proof_required" value="1"${check(s.upiProofRequired)} style="width:18px;height:18px"/>
+        <label for="proof" style="margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:inherit">
+          Require a payment screenshot at checkout <span class="muted">(recommended)</span></label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="field"><label>Hold unverified orders for (hours)</label>
+          <input name="upi_hold_hours" type="number" min="1" max="168" value="${esc(s.upiHoldHours)}"/>
+          <span class="muted" style="font-size:12px">Then the order is cancelled and the stock goes back.</span></div>
+        <div class="field"><label>Max unverified orders per phone</label>
+          <input name="upi_max_open_per_phone" type="number" min="1" max="10" value="${esc(s.upiMaxOpenPerPhone)}"/>
+          <span class="muted" style="font-size:12px">Stops one person tying up stock with fake references.</span></div>
+      </div>
 
       <h2 style="font-family:Georgia,serif;font-weight:400;font-size:20px;margin:24px 0 8px">Publishing</h2>
       <p class="muted" style="font-size:13px;margin:0 0 10px">
@@ -96,6 +117,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     codMaxOrderValue: num("cod_max_order_value", current.codMaxOrderValue),
     flatShippingFee: num("flat_shipping_fee", current.flatShippingFee),
     freeShippingThreshold: num("free_shipping_threshold", current.freeShippingThreshold),
+    upiProofRequired: form.get("upi_proof_required") === "1",
+    upiHoldHours: num("upi_hold_hours", current.upiHoldHours),
+    upiMaxOpenPerPhone: num("upi_max_open_per_phone", current.upiMaxOpenPerPhone),
   });
 
   // UPI details + deploy hook.

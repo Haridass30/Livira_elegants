@@ -4,8 +4,10 @@
  * Validates the cart + customer SERVER-SIDE, recomputes every total from the
  * canonical catalogue, then either:
  *   - method "cod":    records a `cod_pending` order + notifies the owner.
- *   - method "online": creates a Razorpay order, stores a `pending` order, and
- *                      returns the ids the client needs to open Checkout.
+ *   - method "online": records an `awaiting_payment` order — the customer's UPI
+ *                      reference is a *claim*, not a payment, so the order holds
+ *                      stock but is not a sale until the owner matches the money
+ *                      in /admin. Nothing here tells the customer it is confirmed.
  *
  * The client's prices/totals are never trusted — only slugs + quantities.
  */
@@ -14,13 +16,23 @@ import type { Env } from "../../_lib/env";
 import { pricingFromEnv } from "../../_lib/env";
 import { json, badRequest, serverError } from "../../_lib/http";
 import { makeOrderRef } from "../../_lib/crypto";
-import { insertOrder } from "../../_lib/db";
-import { notifyOwner } from "../../_lib/email";
+import {
+  insertOrder,
+  findByUpiRef,
+  countAwaitingByPhone,
+  countRejectedByPhone,
+  addPaymentProof,
+  DuplicateUpiRefError,
+} from "../../_lib/db";
+import { notifyOwner, notifyCustomer, summariseOrderRow } from "../../_lib/email";
+import { checkUpiRef, decodePaymentProof, formatUpiRef } from "../../_lib/upi";
+import { sweepExpiredHolds } from "../../_lib/paymentHold";
 import {
   getSettings,
   getCoupon,
   evaluateCoupon,
   incrementCouponUse,
+  getUpi,
 } from "../../_lib/settings";
 import { loadCatalog, decrementStock } from "../../_lib/catalogDb";
 import {
@@ -31,7 +43,7 @@ import {
 } from "../../../src/lib/pricing";
 import type { CreateOrderRequest, CheckoutMethod } from "../../../src/lib/types";
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   let body: CreateOrderRequest;
   try {
     body = (await request.json()) as CreateOrderRequest;
@@ -70,6 +82,80 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // 2) Pincode serviceability (optional; allow-list/deny-list in config).
   if (!isPincodeServiceable(body.customer.pincode, cfg)) {
     return badRequest("Sorry, we don't deliver to that pincode yet.");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 2b) Manual-UPI gate. None of this proves the money arrived — only the
+   * owner can do that. It exists to keep junk out of the verification
+   * queue: a value that cannot be a UTR, a reference already claimed by
+   * another order, or a customer opening unverified orders in bulk.
+   * ------------------------------------------------------------------ */
+  let upiRef = "";
+  let proofBytes: ArrayBuffer | null = null;
+  let proofMime = "";
+
+  if (method === "online") {
+    const upi = await getUpi(env);
+    if (!upi.id) {
+      return badRequest(
+        "Online payment isn't set up yet. Please choose Cash on Delivery or contact us.",
+      );
+    }
+
+    const refCheck = checkUpiRef((body as { upiRef?: string }).upiRef ?? "");
+    if (!refCheck.ok) return badRequest(refCheck.reason!);
+    upiRef = refCheck.ref;
+
+    const claimed = await findByUpiRef(env, upiRef);
+    if (claimed) {
+      return badRequest(
+        "That UPI reference has already been used for another order. " +
+          "Please enter the reference for this payment, or contact us if you think this is a mistake.",
+      );
+    }
+
+    // A customer with rejected payments behind them doesn't get to keep trying.
+    if ((await countRejectedByPhone(env, body.customer.phone)) >= 3) {
+      return badRequest(
+        "We couldn't verify previous payments from this number. Please contact us before ordering again.",
+      );
+    }
+
+    const open = await countAwaitingByPhone(
+      env,
+      body.customer.phone,
+      settings.upiHoldHours,
+    );
+    if (open >= settings.upiMaxOpenPerPhone) {
+      return badRequest(
+        `You already have ${open} order${open === 1 ? "" : "s"} waiting for payment verification. ` +
+          "Please wait until we've verified them, or choose Cash on Delivery.",
+      );
+    }
+
+    const rawProof = (body as { paymentProof?: string }).paymentProof ?? "";
+    if (rawProof) {
+      const decoded = decodePaymentProof(rawProof);
+      if (!decoded.ok) return badRequest(decoded.reason!);
+      proofBytes = decoded.bytes;
+      proofMime = decoded.mime;
+    } else if (settings.upiProofRequired) {
+      return badRequest(
+        "Please attach the payment screenshot from your UPI app so we can verify your payment.",
+      );
+    }
+  }
+
+  // 2c) Free the stock held by unverified orders that ran out of time, so this
+  // buyer can have it. Pages has no cron — the sweep rides on checkout traffic.
+  // Telling those customers happens after the response, not in their way.
+  const expired = await sweepExpiredHolds(env, settings.upiHoldHours);
+  if (expired.length) {
+    waitUntil(
+      Promise.all(
+        expired.map((o) => notifyCustomer(env, summariseOrderRow(o), "expired")),
+      ),
+    );
   }
 
   // 3) Cart — recompute everything from the D1 catalogue (price, stock, qty).
@@ -117,28 +203,64 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     // ---------------- COD ----------------
     if (method === "cod") {
-      await insertOrder(env, { ...baseOrder, status: "cod_pending" });
+      const codOrder = { ...baseOrder, status: "cod_pending" as const, stockHeld: true };
+      await insertOrder(env, codOrder);
       await decrementStock(env, lines);
       if (couponCode) await incrementCouponUse(env, couponCode);
-      // Fire owner notification (never blocks the response on failure).
-      await notifyOwner(env, { ...baseOrder, status: "cod_pending" });
-      return json({ ok: true, order_ref: orderRef, method: "cod" });
+      // Notifications never block the response on failure.
+      await notifyOwner(env, codOrder);
+      await notifyCustomer(env, codOrder, "cod");
+      return json({
+        ok: true,
+        order_ref: orderRef,
+        method: "cod",
+        status: "cod_pending",
+      });
     }
 
     // ---------------- Online (manual UPI) ----------------
-    // The customer pays to the store's UPI id and enters the payment reference;
-    // the order is recorded as `pending` until the owner verifies the money.
-    const upiRef = String((body as { upiRef?: string }).upiRef ?? "").trim();
-    if (!upiRef) {
-      return badRequest("Please enter the UPI reference number after paying.");
+    // The reference is recorded as an unverified CLAIM. The order holds stock
+    // so the piece can't be sold twice, but it is not a sale and the customer
+    // is not told it is confirmed until the owner matches the money in /admin.
+    let paymentProofId: number | undefined;
+    if (proofBytes) {
+      paymentProofId = await addPaymentProof(env, orderRef, proofMime, proofBytes);
     }
-    const notes = `UPI ref: ${upiRef}`;
-    await insertOrder(env, { ...baseOrder, status: "pending", notes });
-    await decrementStock(env, lines);
-    if (couponCode) await incrementCouponUse(env, couponCode);
-    await notifyOwner(env, { ...baseOrder, status: "pending", notes });
 
-    return json({ ok: true, order_ref: orderRef, method: "online" });
+    const onlineOrder = {
+      ...baseOrder,
+      status: "awaiting_payment" as const,
+      notes: `Unverified UPI ref: ${formatUpiRef(upiRef)}`,
+      upiRef,
+      paymentProofId,
+      stockHeld: true,
+      hasProof: !!paymentProofId,
+    };
+
+    try {
+      await insertOrder(env, onlineOrder);
+    } catch (err) {
+      if (err instanceof DuplicateUpiRefError) {
+        return badRequest(
+          "That UPI reference has already been used for another order. " +
+            "Please enter the reference for this payment, or contact us if you think this is a mistake.",
+        );
+      }
+      throw err;
+    }
+
+    await decrementStock(env, lines);
+    // The coupon is only spent once the payment is verified — an unverified
+    // order must not be able to burn a limited-use code.
+    await notifyOwner(env, onlineOrder);
+    await notifyCustomer(env, onlineOrder, "awaiting");
+
+    return json({
+      ok: true,
+      order_ref: orderRef,
+      method: "online",
+      status: "awaiting_payment",
+    });
   } catch (err) {
     console.error("[create] error", err);
     return serverError("Could not place the order. Please try again.");
