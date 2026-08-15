@@ -16,7 +16,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
 <header
   id="site-header"
   class:list={[
-    "site-header-light fixed inset-x-0 z-40 border-b backdrop-blur",
+    "site-header-dark fixed inset-x-0 z-40 border-b backdrop-blur",
     hasBar ? "top-9" : "top-0",
   ]}
 >
@@ -40,7 +40,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
         aria-label="Open menu"
         aria-expanded="false"
         aria-controls="mobile-nav"
-        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-ink md:hidden"
+        class="flex h-10 w-10 items-center justify-center text-[#ecdccf]/85 hover:text-white md:hidden"
       >
         <span class="sr-only">Menu</span>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -55,7 +55,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
               href={item.href}
               class:list={[
                 "link-underline text-[0.78rem] uppercase tracking-[0.16em]",
-                isActive(item.href) ? "text-champagne" : "text-charcoal/75 hover:text-ink",
+                isActive(item.href) ? "text-[#dcab7e]" : "text-[#ecdccf]/80 hover:text-white",
               ]}
             >
               {item.label}
@@ -73,7 +73,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
         aria-label="Search"
         aria-expanded="false"
         aria-controls="search-panel"
-        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-ink"
+        class="flex h-10 w-10 items-center justify-center text-[#ecdccf]/85 hover:text-white"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.5" />
@@ -83,7 +83,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
       <a
         href="/account"
         aria-label="My account"
-        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-ink"
+        class="flex h-10 w-10 items-center justify-center text-[#ecdccf]/85 hover:text-white"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.5" />

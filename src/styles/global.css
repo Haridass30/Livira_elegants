@@ -315,22 +315,30 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Chrome. The HEADER is light — a frosted ivory bar carrying the
- * transparent rose-gold logo, continuous with the announcement bar above
- * it. The FOOTER stays deep plum to close the page.
+ * Dark plum chrome — HEADER & FOOTER (the rest of the site is light).
+ * Both bookends share one ground so they can never drift apart; edit the
+ * gradient here and the top and bottom of every page move together.
  * ------------------------------------------------------------------ */
-.site-header-light {
-  /* Slightly translucent so the blur reads against the hero photo below. */
-  background: color-mix(in srgb, var(--color-ivory) 90%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--color-champagne) 28%, transparent);
+.site-header-dark,
+footer.site-footer-dark {
+  background: linear-gradient(180deg, #271524 0%, #170c14 100%);
 }
-/* Cart button is a React island (fixed text-charcoal) — pin its hover here. */
-.site-header-light [aria-label^="Open bag"]:hover {
-  color: var(--color-ink);
+
+/* Only the footer sets an inherited text colour. The header must not: its
+   search panel and mobile nav are ivory surfaces nested inside it, and some
+   of their text (e.g. search-result product names) has no explicit colour. */
+.site-header-dark {
+  border-bottom-color: rgba(207, 154, 110, 0.26);
+}
+/* Cart button is a React island (fixed text-charcoal) — recolour it here. */
+.site-header-dark [aria-label^="Open bag"] {
+  color: #ecdccf;
+}
+.site-header-dark [aria-label^="Open bag"]:hover {
+  color: #fff;
 }
 
 footer.site-footer-dark {
-  background: linear-gradient(180deg, #271524 0%, #170c14 100%);
   color: #ecdccf;
   border-top-color: rgba(207, 154, 110, 0.26);
 }
