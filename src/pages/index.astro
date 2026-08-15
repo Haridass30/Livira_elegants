@@ -2,7 +2,7 @@
 import { getCollection } from "astro:content";
 import { Image } from "astro:assets";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import ProductCard from "../components/ProductCard.astro";
+import ProductCardLuxe from "../components/ProductCardLuxe.astro";
 import { site } from "../config";
 import { getSiteContent } from "../lib/siteContent";
 import heroImg from "../assets/hero.jpg";
@@ -48,6 +48,9 @@ const mainOfHome = (leaf: string) => {
 };
 // Collection cover photos (name → product_images.id) for the tile backgrounds.
 const catImage = new Map(cats.map((c) => [c.name, c.imageId ?? null]));
+// Pieces per main category, counting everything filed under its sub-categories.
+const countOfMain = (main: string) =>
+  all.filter((e) => mainOfHome(e.data.category) === main).length;
 
 // "Trending" and "New Arrivals" are driven by product tags, matched case- and
 // space-insensitively (so "New Arrivals" / "new arrivals" / "newarrivals" match).
@@ -59,15 +62,35 @@ const trendingProducts = all.filter((e) => hasTag(e, "trending")).slice(0, 12);
 const newArrivals = all.filter((e) => hasTag(e, "new arrivals")).slice(0, 12);
 const trendingCats = [...new Set(trendingProducts.map((e) => mainOfHome(e.data.category)))];
 const tcatClass =
-  "tcat border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory";
+  "tcat eyebrow border border-border px-5 py-2.5 text-taupe transition-colors data-[active=true]:border-ink data-[active=true]:bg-ink data-[active=true]:text-ivory";
 
-// Brand value props for the trust strip (line-icon medallions).
+// Brand ticker under the banner.
+const marqueeItems = [
+  "Hand-Finished in Palani",
+  "BIS Hallmarked Gold",
+  "Ethically Sourced Stones",
+  "Complimentary Insured Shipping",
+  "Lifetime Polishing",
+];
+
+// Editorial image beside the brand story. Prefer photography the owner has
+// already uploaded (a bento tile, then a collection cover) — the bundled
+// hero.jpg is a wide brand plate that crops badly in a 4:5 frame.
+const storyImageId =
+  bento.find((b) => b.imageId)?.imageId ??
+  cats.find((c) => c.imageId)?.imageId ??
+  null;
+
+// The four pillars beside the brand story.
+const craftFacts = [
+  ["Hand-Finished", "Every piece is filed, set and polished by hand."],
+  ["Hallmarked Metals", "BIS-hallmarked 18k and 22k gold, always."],
+  ["Ethical Stones", "Traceable, conflict-free sourcing."],
+  ["Small Batches", "Made in runs of twelve or fewer."],
+];
+
+// Brand value props for the trust strip (line icons).
 const values = [
-  {
-    title: "Easy Returns",
-    desc: "Shop with confidence knowing we're here to support you if you need assistance.",
-    svg: `<path d="M4 12a8 8 0 1 1 2.5 5.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M4 8v4h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>`,
-  },
   {
     title: "Secure Shipping",
     desc: "Your jewellery is carefully packed and safely delivered to your doorstep.",
@@ -129,390 +152,604 @@ const jsonLd = {
   title={site.name}
   description={site.statement}
   jsonLd={jsonLd}
+  padTop={false}
 >
-  <!-- Hero banner slider (one or more admin-editable banners) -->
-  <section
-    id="hero"
-    data-banner-sig={bannerSig}
-    class="hero-slider relative h-[46svh] min-h-[290px] overflow-hidden sm:h-[68svh] sm:min-h-[440px] md:h-[88svh] md:min-h-[560px]"
-    aria-roledescription="carousel"
-    aria-label="Featured banners"
-    data-has-hero
-  >
-    <div class="hero-track flex h-full w-full" id="hero-track">
-      {
-        slides.map((slide, i) => (
-          <div
-            class="hero-slide relative flex h-full w-full flex-shrink-0 items-end"
-            aria-roledescription="slide"
-            aria-label={`Banner ${i + 1} of ${slides.length}`}
-          >
-            {slide.image ? (
-              <img
-                src={slide.image.url}
-                alt={slide.heading}
-                width={slide.image.width}
-                height={slide.image.height}
-                loading={i === 0 ? "eager" : "lazy"}
-                fetchpriority={i === 0 ? "high" : "auto"}
-                class="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <Image
-                src={heroImg}
-                alt={slide.heading}
-                widths={[640, 1024, 1600, 2400]}
-                sizes="100vw"
-                loading={i === 0 ? "eager" : "lazy"}
-                fetchpriority={i === 0 ? "high" : undefined}
-                class="absolute inset-0 h-full w-full object-cover"
-              />
-            )}
-            <div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/30 to-[#150b10]/50" />
-            <div class="container-page relative pb-16 md:pb-24">
-              <div class="hero-copy">
-                <p class="eyebrow flex items-center gap-2">
-                  <span class="gem-mark">◆</span> Fine jewellery · India
-                </p>
-                <h1 class="mt-4 max-w-2xl font-serif text-[2rem] leading-[1.12] sm:text-4xl md:text-5xl lg:text-6xl">
-                  <span class="text-metallic is-animated">{slide.heading}</span>
-                </h1>
-                {slide.subtext && (
-                  <p class="mt-5 max-w-md text-ivory/85">{slide.subtext}</p>
+  <div class="home-luxe">
+    <!-- Promo banner carousel (one or more admin-editable banners) -->
+    <section
+      id="hero"
+      data-banner-sig={bannerSig}
+      class="hero-slider relative overflow-hidden bg-ink"
+      aria-roledescription="carousel"
+      aria-label="Featured banners"
+      data-has-hero
+    >
+      <div class="hero-track flex w-full" id="hero-track">
+        {
+          slides.map((slide, i) => (
+            <div
+              class="hero-slide relative w-full shrink-0"
+              aria-roledescription="slide"
+              aria-label={`Banner ${i + 1} of ${slides.length}`}
+            >
+              <div class="relative aspect-[4/5] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-[21/9]">
+                {slide.image ? (
+                  <img
+                    src={slide.image.url}
+                    alt={slide.heading}
+                    width={slide.image.width}
+                    height={slide.image.height}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    fetchpriority={i === 0 ? "high" : "auto"}
+                    class="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={heroImg}
+                    alt={slide.heading}
+                    widths={[640, 1024, 1600, 2400]}
+                    sizes="100vw"
+                    loading={i === 0 ? "eager" : "lazy"}
+                    fetchpriority={i === 0 ? "high" : undefined}
+                    class="absolute inset-0 h-full w-full object-cover"
+                  />
                 )}
-                <div class="mt-8 flex flex-wrap gap-4">
-                  <a href={slide.buttonLink} class="btn btn-primary">
-                    {slide.buttonLabel}
-                  </a>
-                  {slide.secondaryLabel && (
-                    <a href={slide.secondaryLink} class="btn btn-outline">
-                      {slide.secondaryLabel}
-                    </a>
-                  )}
+                <div
+                  aria-hidden="true"
+                  class="absolute inset-0 bg-gradient-to-r from-[#150b10]/85 via-[#150b10]/45 to-[#150b10]/20"
+                />
+                <span
+                  aria-hidden="true"
+                  class="glow-pulse pointer-events-none absolute -right-16 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-champagne/25 blur-3xl sm:h-96 sm:w-96"
+                />
+                <span
+                  aria-hidden="true"
+                  class="spin-slow pointer-events-none absolute -bottom-24 right-6 hidden h-72 w-72 rounded-full border border-champagne/20 lg:block"
+                >
+                  <span class="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-champagne/70" />
+                </span>
+
+                <div class="absolute inset-0 grid items-center px-6 sm:px-12 lg:px-20">
+                  <div class="hero-copy max-w-xl">
+                    <p class="eyebrow !text-champagne-soft">Fine jewellery · India</p>
+                    <h1 class="mt-4 whitespace-pre-line font-serif text-4xl leading-[1.05] text-ivory sm:text-5xl lg:text-6xl">
+                      {slide.heading}
+                    </h1>
+                    <span
+                      aria-hidden="true"
+                      class="mt-6 block h-px w-24 bg-gradient-to-r from-champagne to-transparent"
+                    />
+                    {slide.subtext && (
+                      <p class="mt-5 max-w-md text-sm leading-relaxed text-ivory/65 sm:text-base">
+                        {slide.subtext}
+                      </p>
+                    )}
+                    <div class="mt-8 flex flex-wrap gap-3">
+                      <a href={slide.buttonLink} class="cta cta-light inline-flex items-center justify-center">
+                        {slide.buttonLabel}
+                      </a>
+                      {slide.secondaryLabel && (
+                        <a href={slide.secondaryLink} class="cta cta-ghost inline-flex items-center justify-center">
+                          {slide.secondaryLabel}
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))
-      }
-    </div>
-
-    <!-- Inset gold frame — a quiet luxury border over the hero. -->
-    <div class="pointer-events-none absolute inset-3 z-[5] border hairline md:inset-6"></div>
-
-    {
-      multiple && (
-        <>
-          <button type="button" class="hero-arrow hero-prev" aria-label="Previous banner">
-            ‹
-          </button>
-          <button type="button" class="hero-arrow hero-next" aria-label="Next banner">
-            ›
-          </button>
-          <div class="hero-dots" aria-label="Choose banner">
-            {slides.map((_, i) => (
-              <button
-                type="button"
-                class="hero-dot"
-                data-dot={i}
-                aria-label={`Go to banner ${i + 1}`}
-              />
-            ))}
-          </div>
-        </>
-      )
-    }
-  </section>
-
-  <!-- New Arrivals — products tagged "new arrivals" (below the banner) -->
-  <section
-    id="newarrivals-section"
-    class:list={["container-page py-12 md:py-16", newArrivals.length ? "" : "hidden"]}
-  >
-    <div class="mb-8 flex items-end justify-between">
-      <div>
-        <p class="eyebrow flex items-center gap-2">
-          <span class="gem-mark">◆</span> Just in
-        </p>
-        <h2 class="mt-2 font-serif text-3xl md:text-4xl">New Arrivals</h2>
+          ))
+        }
       </div>
-      <a href="/shop" class="link-underline hidden text-sm uppercase tracking-[0.14em] md:inline">
-        View all →
-      </a>
-    </div>
-    <div
-      id="newarrivals-grid"
-      data-na-sig={newArrivalsSig}
-      class="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-12 md:grid-cols-4 md:gap-x-8"
-    >
-      {newArrivals.map((entry, i) => <ProductCard entry={entry} priority={i < 4} />)}
-    </div>
-  </section>
 
-  <!-- Shop-by collections — horizontal scroll of top-level categories -->
-  <section class="py-12 md:py-16">
-    <div class="container-page mb-6 flex items-end justify-between gap-4">
-      <div>
-        <p class="eyebrow flex items-center gap-2">
-          <span class="gem-mark">◆</span> Shop by category
-        </p>
-        <h2 class="mt-2 font-serif text-2xl md:text-3xl">Explore our collections</h2>
-        <p class="mt-2 max-w-md text-sm text-charcoal/60">
-          Handpicked across every category — swipe to browse and find your perfect piece.
-        </p>
-      </div>
-      <a href="/shop" class="link-underline hidden shrink-0 text-sm uppercase tracking-[0.14em] md:inline">
-        View all →
-      </a>
-    </div>
-    <div id="cat-grid" data-tiles-sig={tilesSig} class="cat-scroll grid grid-flow-col grid-rows-2 auto-cols-max snap-x gap-4 overflow-x-auto px-5 pb-3 md:grid-rows-1 md:px-10">
       {
-        categories.map((cat) => {
-          const img = catImage.get(cat);
-          return img ? (
-            <a
-              href={`/shop?category=${encodeURIComponent(cat)}`}
-              class="card-lux group relative flex aspect-[3/4] w-36 shrink-0 snap-start overflow-hidden rounded-[3px] sm:w-40"
-            >
-              <img
-                src={`/api/images/${img}`}
-                alt={cat}
-                loading="lazy"
-                class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
-              />
-              <div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/25 to-transparent" />
-              <div class="absolute inset-x-0 bottom-0 flex flex-col items-center p-3 text-center">
-                <span class="font-serif text-lg leading-tight text-white sm:text-xl">{cat}</span>
-                <span class="mt-1 text-[10px] uppercase tracking-[0.18em] text-champagne-soft">Explore →</span>
-              </div>
-            </a>
-          ) : (
-            <a
-              href={`/shop?category=${encodeURIComponent(cat)}`}
-              class="card-lux group flex aspect-[3/4] w-36 shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center sm:w-40"
-            >
-              <span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span>
-              <span class="font-serif text-lg leading-tight tracking-wide sm:text-xl">{cat}</span>
-              <span class="gold-rule w-8 transition-all duration-500 group-hover:w-16" />
-              <span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">
-                Explore →
-              </span>
-            </a>
-          );
-        })
-      }
-      <a
-        href={`/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}`}
-        class="card-lux group flex aspect-[3/4] w-36 shrink-0 snap-start flex-col items-center justify-center gap-3 overflow-hidden rounded-[3px] px-3 text-center sm:w-40"
-      >
-        <span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span>
-        <span class="font-serif text-base leading-tight tracking-wide sm:text-lg">Anti-Tarnish<br />Jewels</span>
-        <span class="gold-rule w-8 transition-all duration-500 group-hover:w-16" />
-        <span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">
-          Explore →
-        </span>
-      </a>
-    </div>
-  </section>
-
-  <!-- Bento — admin-uploaded image tiles -->
-  <section
-    id="bento-section"
-    data-bento-sig={bentoSig}
-    class:list={["container-page py-12 md:py-16", hasBento ? "" : "hidden"]}
-  >
-    <div id="bento-grid" class="grid grid-cols-2 gap-3 md:h-[520px] md:grid-cols-4 md:grid-rows-2">
-      {
-        [0, 1, 2, 3, 4].map((i) => {
-          const b = bento[i] ?? { imageId: null, link: "", caption: "" };
-          const cls = `bento-cell group relative block overflow-hidden rounded-[3px] ${BENTO_POS[i]} ${b.imageId ? "card-lux" : "surface"}`;
-          const Tag = b.imageId && b.link ? "a" : "div";
-          return (
-            <Tag href={b.imageId && b.link ? b.link : undefined} class={cls}>
-              {b.imageId && (
-                <img
-                  src={`/api/images/${b.imageId}`}
-                  alt={b.caption || ""}
-                  loading="lazy"
-                  class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
+        multiple && (
+          <div class="absolute inset-x-0 bottom-6 z-10 flex items-center justify-between px-6 sm:px-12 lg:px-20">
+            <div class="hero-dots flex items-center gap-2" aria-label="Choose banner">
+              {slides.map((_, i) => (
+                <button
+                  type="button"
+                  class="hero-dot"
+                  data-dot={i}
+                  aria-label={`Go to banner ${i + 1}`}
                 />
-              )}
-              {b.imageId && b.caption && (
-                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150b10]/70 to-transparent p-4">
-                  <span class="font-serif text-lg text-ivory">{b.caption}</span>
-                </div>
-              )}
-            </Tag>
-          );
-        })
-      }
-    </div>
-  </section>
-
-  <!-- Brand statement -->
-  <section class="container-page py-16 text-center md:py-28">
-    <p class="eyebrow">The Livira way</p>
-    <p
-      class="mx-auto mt-6 max-w-3xl font-serif text-xl leading-relaxed text-charcoal sm:text-2xl md:text-[2rem]"
-    >
-      {site.statement}
-    </p>
-    <div class="divider-gem mt-10" aria-hidden="true">◆</div>
-  </section>
-
-  <!-- Trending — products tagged "trending", filterable by collection -->
-  <section
-    id="trending-section"
-    class:list={["container-page py-6 md:py-10", trendingProducts.length ? "" : "hidden"]}
-  >
-    <div class="mb-8 text-center">
-      <p class="eyebrow flex items-center justify-center gap-2">
-        <span class="gem-mark">◆</span> Handpicked
-      </p>
-      <h2 class="mt-2 font-serif text-3xl md:text-4xl">Trending Now</h2>
-    </div>
-    <div
-      id="trending-tabs"
-      class:list={["mb-8 flex-wrap justify-center gap-2", trendingCats.length > 1 ? "flex" : "hidden"]}
-    >
-      <button type="button" class={tcatClass} data-tcat="all" data-active="true">All</button>
-      {trendingCats.map((c) => (
-        <button type="button" class={tcatClass} data-tcat={c}>{c}</button>
-      ))}
-    </div>
-    <div
-      id="trending-grid"
-      data-trending-sig={trendingSig}
-      class="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-12 md:grid-cols-4 md:gap-x-8"
-    >
-      {trendingProducts.map((entry, i) => (
-        <div class="trend-item" data-main={mainOfHome(entry.data.category)}>
-          <ProductCard entry={entry} priority={i < 4} />
-        </div>
-      ))}
-    </div>
-    <div class="mt-10 text-center">
-      <a href="/shop" class="btn btn-outline">View all</a>
-    </div>
-  </section>
-
-  <!-- Trust strip -->
-  <section class="border-y hairline bg-bone/40">
-    <div class="container-page grid grid-cols-2 gap-8 py-14 text-center md:grid-cols-4 md:gap-10 md:py-16">
-      {
-        values.map((v) => (
-          <div class="flex flex-col items-center">
-            <span class="icon-medallion" aria-hidden="true">
-              <svg width="24" height="24" viewBox="0 0 24 24" set:html={v.svg} />
-            </span>
-            <h3 class="mt-5 font-serif text-lg md:text-xl">{v.title}</h3>
-            <p class="mx-auto mt-2 max-w-xs text-sm text-charcoal/65">{v.desc}</p>
+              ))}
+            </div>
+            <div class="hidden gap-2 sm:flex">
+              <button type="button" class="hero-arrow hero-prev" aria-label="Previous banner">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M19 12H5m0 0 6-6m-6 6 6 6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"></path>
+                </svg>
+              </button>
+              <button type="button" class="hero-arrow hero-next" aria-label="Next banner">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M5 12h14m0 0-6-6m6 6-6 6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"></path>
+                </svg>
+              </button>
+            </div>
           </div>
-        ))
+        )
       }
+    </section>
+
+    <!-- Brand ticker -->
+    <div class="relative overflow-hidden border-y border-ink/10 bg-sand/60 py-5">
+      <div class="marquee-track items-center gap-12 sm:gap-20">
+        {
+          [...marqueeItems, ...marqueeItems].map((t) => (
+            <span class="eyebrow flex items-center gap-12 !text-taupe sm:gap-20">
+              {t}
+              <span class="text-champagne">◆</span>
+            </span>
+          ))
+        }
+      </div>
     </div>
-  </section>
+
+    <!-- New Arrivals — products tagged "new arrivals" -->
+    <section
+      id="newarrivals-section"
+      class:list={[
+        "mx-auto max-w-7xl px-5 py-20 lg:px-10 lg:py-28",
+        newArrivals.length ? "" : "hidden",
+      ]}
+    >
+      <div class="reveal">
+        <div class="gap-6 sm:flex sm:items-end sm:justify-between">
+          <div class="max-w-2xl">
+            <p class="eyebrow">◆ Just In</p>
+            <h2 class="mt-3 font-serif text-3xl leading-tight text-ink sm:text-4xl lg:text-[2.75rem]">
+              New Arrivals
+            </h2>
+            <p class="mt-4 text-sm leading-relaxed text-taupe sm:text-base">
+              Discover the latest pieces added to the Livira collection.
+            </p>
+          </div>
+          <div class="mt-6 shrink-0 sm:mt-0">
+            <a href="/shop" class="cta cta-outline items-center justify-center hidden sm:inline-flex">View All New Arrivals</a>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="newarrivals-grid"
+        data-na-sig={newArrivalsSig}
+        class="no-scrollbar mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:gap-8 sm:overflow-visible lg:grid-cols-4"
+      >
+        {
+          newArrivals.map((entry, i) => (
+            <div class="reveal w-[72vw] shrink-0 snap-start sm:w-auto" style={`transition-delay:${i * 70}ms`}>
+              <ProductCardLuxe entry={entry} priority={i < 4} />
+            </div>
+          ))
+        }
+      </div>
+
+      <a href="/shop" class="cta cta-outline inline-flex items-center justify-center mt-10 w-full sm:hidden">View All New Arrivals</a>
+    </section>
+
+    <!-- Shop by category — horizontal rail of top-level categories -->
+    <section class="border-y border-border bg-bone py-20 lg:py-28">
+      <div class="mx-auto max-w-7xl px-5 lg:px-10">
+        <div class="reveal">
+          <p class="eyebrow">Shop by Category</p>
+          <h2 class="mt-3 font-serif text-3xl leading-tight text-ink sm:text-4xl lg:text-[2.75rem]">
+            Explore our collections
+          </h2>
+          <p class="mt-4 max-w-2xl text-sm leading-relaxed text-taupe sm:text-base">
+            Handpicked across every category — swipe to browse and find your perfect piece.
+          </p>
+        </div>
+      </div>
+
+      <div
+        id="cat-grid"
+        data-tiles-sig={tilesSig}
+        class="no-scrollbar mt-12 flex snap-x gap-5 overflow-x-auto px-5 pb-2 lg:px-10"
+      >
+        {
+          categories.map((cat, i) => {
+            const img = catImage.get(cat);
+            const n = countOfMain(cat);
+            return (
+              <a
+                href={`/shop?category=${encodeURIComponent(cat)}`}
+                class="group lift-card block w-[58vw] shrink-0 snap-start sm:w-[34vw] lg:w-[19rem]"
+              >
+                <div class="sheen-on-hover relative overflow-hidden bg-ivory">
+                  <div class="transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.07]">
+                    {img ? (
+                      <img
+                        src={`/api/images/${img}`}
+                        alt={cat}
+                        loading="lazy"
+                        class="aspect-[3/4] w-full object-cover"
+                      />
+                    ) : (
+                      <div class="grid aspect-[3/4] w-full place-items-center bg-sand">
+                        <span class="gem-mark text-2xl opacity-50">◆</span>
+                      </div>
+                    )}
+                  </div>
+                  <span class="eyebrow absolute right-3 top-3 z-10 !text-ink/25">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </div>
+                <div class="flex items-baseline justify-between border-b border-border py-4 transition-colors group-hover:border-champagne">
+                  <h3 class="font-serif text-xl text-ink transition-transform duration-500 group-hover:translate-x-1">
+                    {cat}
+                  </h3>
+                  <span class="text-xs tracking-widest text-taupe">
+                    {n} {n === 1 ? "piece" : "pieces"}
+                  </span>
+                </div>
+              </a>
+            );
+          })
+        }
+        <a
+          href={`/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}`}
+          class="group lift-card block w-[58vw] shrink-0 snap-start sm:w-[34vw] lg:w-[19rem]"
+        >
+          <div class="sheen-on-hover relative overflow-hidden bg-ivory">
+            <div class="grid aspect-[3/4] w-full place-items-center bg-sand transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.07]">
+              <span class="gem-mark text-2xl opacity-50">◆</span>
+            </div>
+          </div>
+          <div class="flex items-baseline justify-between border-b border-border py-4 transition-colors group-hover:border-champagne">
+            <h3 class="font-serif text-xl text-ink transition-transform duration-500 group-hover:translate-x-1">
+              Anti-Tarnish Jewels
+            </h3>
+            <span class="text-xs tracking-widest text-taupe">Explore</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- The collections — admin-uploaded bento tiles -->
+    <section
+      id="bento-section"
+      data-bento-sig={bentoSig}
+      class:list={[
+        "mx-auto max-w-7xl px-5 py-20 lg:px-10 lg:py-28",
+        hasBento ? "" : "hidden",
+      ]}
+    >
+      <div class="reveal text-center">
+        <p class="eyebrow">◆ Curated</p>
+        <h2 class="mt-3 font-serif text-3xl leading-tight text-ink sm:text-4xl lg:text-[2.75rem]">
+          The Collections
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-taupe sm:text-base">
+          Edits built around a single idea of how fine jewellery should be worn.
+        </p>
+      </div>
+      <div class="reveal mt-8 flex items-center justify-center gap-4" aria-hidden="true">
+        <span class="h-px w-16 bg-gradient-to-r from-transparent to-champagne/60 sm:w-28"></span>
+        <span class="float-soft text-champagne">◆</span>
+        <span class="h-px w-16 bg-gradient-to-l from-transparent to-champagne/60 sm:w-28"></span>
+      </div>
+
+      <div
+        id="bento-grid"
+        class="mt-14 grid grid-cols-2 gap-4 md:h-[520px] md:grid-cols-4 md:grid-rows-2"
+      >
+        {
+          [0, 1, 2, 3, 4].map((i) => {
+            const b = bento[i] ?? { imageId: null, link: "", caption: "" };
+            const cls = `bento-cell group sheen-on-hover relative block overflow-hidden ${BENTO_POS[i]} ${b.imageId ? "" : "bg-bone"}`;
+            const Tag = b.imageId && b.link ? "a" : "div";
+            return (
+              <Tag href={b.imageId && b.link ? b.link : undefined} class={cls}>
+                {b.imageId && (
+                  <img
+                    src={`/api/images/${b.imageId}`}
+                    alt={b.caption || ""}
+                    loading="lazy"
+                    class="h-full w-full object-cover transition-transform duration-[1000ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
+                  />
+                )}
+                {b.imageId && (
+                  <div
+                    aria-hidden="true"
+                    class="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent transition-opacity duration-700 group-hover:opacity-90"
+                  />
+                )}
+                {b.imageId && (
+                  <span
+                    aria-hidden="true"
+                    class="pointer-events-none absolute inset-4 z-10 border border-champagne/0 transition-all duration-700 group-hover:inset-3 group-hover:border-champagne/40"
+                  />
+                )}
+                {b.imageId && b.caption && (
+                  <div class="absolute inset-x-0 bottom-0 z-10 p-6">
+                    <h3 class="font-serif text-2xl text-ivory transition-transform duration-700 group-hover:-translate-y-1">
+                      {b.caption}
+                    </h3>
+                    {b.link && (
+                      <span class="eyebrow mt-4 inline-flex items-center gap-2 !text-champagne-soft">
+                        Discover
+                        <span class="transition-transform duration-500 group-hover:translate-x-1.5">
+                          →
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </Tag>
+            );
+          })
+        }
+      </div>
+    </section>
+
+    <!-- Brand story -->
+    <section class="relative overflow-hidden bg-ink text-ivory">
+      <span
+        aria-hidden="true"
+        class="glow-pulse pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-amethyst/25 blur-3xl"
+      ></span>
+      <div
+        class="relative mx-auto grid max-w-7xl items-center gap-12 px-5 py-20 lg:grid-cols-2 lg:gap-20 lg:px-10 lg:py-28"
+      >
+        <div class="reveal relative">
+          <div class="sheen-on-hover overflow-hidden">
+            {
+              storyImageId ? (
+                <img
+                  src={`/api/images/${storyImageId}`}
+                  alt="Hand-finished pieces from the Livira workshop"
+                  loading="lazy"
+                  class="aspect-[4/5] w-full object-cover"
+                />
+              ) : (
+                <div class="bg-plum-gradient grid aspect-[4/5] w-full place-items-center">
+                  <span class="font-serif text-3xl tracking-[0.3em] text-champagne/70">
+                    {site.wordmark}
+                  </span>
+                </div>
+              )
+            }
+          </div>
+          <span
+            aria-hidden="true"
+            class="float-soft absolute -bottom-4 -right-4 hidden h-24 w-24 border border-champagne/50 lg:block"
+          ></span>
+        </div>
+        <div class="reveal" style="transition-delay:120ms">
+          <p class="eyebrow">✦ Our Craft</p>
+          <h2
+            class="gold-shimmer-text mt-4 font-serif text-3xl leading-tight sm:text-4xl lg:text-[3rem]"
+          >
+            The Livira Way
+          </h2>
+          <p class="mt-6 max-w-xl text-base leading-relaxed text-ivory/65">
+            {site.statement}
+          </p>
+          <dl class="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+            {
+              craftFacts.map(([t, c]) => (
+                <div class="border-t border-ivory/15 pt-4">
+                  <dt class="eyebrow !text-champagne-soft">{t}</dt>
+                  <dd class="mt-2 text-sm leading-relaxed text-ivory/55">{c}</dd>
+                </div>
+              ))
+            }
+          </dl>
+          <a href="/about" class="cta cta-light inline-flex items-center justify-center mt-10">Our Story</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trending — products tagged "trending", filterable by collection -->
+    <section
+      id="trending-section"
+      class:list={[
+        "mx-auto max-w-7xl px-5 py-20 lg:px-10 lg:py-28",
+        trendingProducts.length ? "" : "hidden",
+      ]}
+    >
+      <div class="reveal">
+        <div class="gap-6 sm:flex sm:items-end sm:justify-between">
+          <div class="max-w-2xl">
+            <p class="eyebrow">◆ Handpicked</p>
+            <h2 class="mt-3 font-serif text-3xl leading-tight text-ink sm:text-4xl lg:text-[2.75rem]">
+              Trending Now
+            </h2>
+            <p class="mt-4 text-sm leading-relaxed text-taupe sm:text-base">
+              The pieces our clients are reaching for this season.
+            </p>
+          </div>
+          <div class="mt-6 shrink-0 sm:mt-0">
+            <a href="/shop" class="cta cta-outline items-center justify-center hidden sm:inline-flex">Shop Trending</a>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="trending-tabs"
+        class:list={[
+          "mt-10 flex-wrap gap-2",
+          trendingCats.length > 1 ? "flex" : "hidden",
+        ]}
+      >
+        <button type="button" class={tcatClass} data-tcat="all" data-active="true">All</button>
+        {trendingCats.map((c) => (
+          <button type="button" class={tcatClass} data-tcat={c}>{c}</button>
+        ))}
+      </div>
+
+      <div
+        id="trending-grid"
+        data-trending-sig={trendingSig}
+        class="no-scrollbar mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2 lg:gap-8"
+      >
+        {trendingProducts.map((entry, i) => (
+          <div
+            class="trend-item reveal w-[72vw] shrink-0 snap-start sm:w-[42vw] lg:w-[calc((100%-6rem)/4)]"
+            data-main={mainOfHome(entry.data.category)}
+            style={`transition-delay:${i * 50}ms`}
+          >
+            <ProductCardLuxe entry={entry} priority={i < 4} />
+          </div>
+        ))}
+      </div>
+
+      <a href="/shop" class="cta cta-outline inline-flex items-center justify-center mt-10 w-full sm:hidden">Shop Trending</a>
+    </section>
+
+    <!-- Trust -->
+    <section class="border-t border-border bg-sand/70 py-20 lg:py-24">
+      <div class="mx-auto max-w-7xl px-5 lg:px-10">
+        <div class="reveal">
+          <p
+            class="mx-auto max-w-2xl text-center font-serif text-2xl leading-snug text-ink sm:text-[1.75rem]"
+          >
+            Shop with confidence knowing we're here to support you if you need assistance.
+          </p>
+        </div>
+        <div class="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
+          {
+            values.map((v, i) => (
+              <div
+                class="reveal group border-t border-ink/12 pt-8 transition-colors hover:border-champagne"
+                style={`transition-delay:${i * 90}ms`}
+              >
+                <span class="block text-champagne transition-transform duration-500 group-hover:-translate-y-1">
+                  <svg width="28" height="28" viewBox="0 0 24 24" set:html={v.svg} />
+                </span>
+                <h3 class="mt-5 font-serif text-xl text-ink">{v.title}</h3>
+                <p class="mt-3 max-w-xs text-sm leading-relaxed text-taupe">{v.desc}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+  </div>
 </BaseLayout>
 
 <style>
-  /* Horizontal collection scroller — hide the scrollbar for a clean rail. */
-  .cat-scroll {
-    scrollbar-width: none;
-    scroll-padding-left: 1.25rem;
+  /* ---- Editorial CTA, shared by the banner and section headings ---- */
+  /* No `display` here on purpose: Astro scopes this rule with an attribute
+     selector, which would outrank Tailwind's `sm:hidden` / `hidden sm:inline-flex`
+     on the responsive CTAs. Display comes from utilities in the markup. */
+  .cta {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 1rem 2rem;
+    border: 1px solid transparent;
+    transition:
+      background-color 0.4s var(--ease-soft),
+      color 0.4s var(--ease-soft),
+      border-color 0.4s var(--ease-soft);
   }
-  .cat-scroll::-webkit-scrollbar {
-    display: none;
+  .cta-outline {
+    border-color: color-mix(in srgb, var(--color-ink) 25%, transparent);
+    color: var(--color-ink);
+  }
+  .cta-outline:hover {
+    border-color: var(--color-champagne);
+    background: var(--color-champagne);
+    color: var(--color-ink);
+  }
+  .cta-light {
+    border-color: rgba(251, 249, 245, 0.35);
+    color: var(--color-ivory);
+  }
+  .cta-light:hover {
+    border-color: var(--color-champagne);
+    background: var(--color-champagne);
+    color: var(--color-ink);
+  }
+  .cta-ghost {
+    border-color: rgba(251, 249, 245, 0.18);
+    color: rgba(251, 249, 245, 0.75);
+  }
+  .cta-ghost:hover {
+    border-color: rgba(251, 249, 245, 0.6);
+    color: var(--color-ivory);
   }
 
-  /* Sliding banner carousel — the track shifts one full width per slide. */
+  /* ---- Banner carousel ---- */
   .hero-track {
-    transition: transform 0.7s var(--ease-soft);
+    transition: transform 0.9s var(--ease-soft);
     will-change: transform;
   }
 
-  /* Text reveals only for the slide currently on screen. */
+  /* Copy rises in, but only for the slide currently on screen. */
   .hero-copy > * {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(26px);
     transition:
-      opacity 0.7s var(--ease-soft),
-      transform 0.7s var(--ease-soft);
+      opacity 0.9s var(--ease-soft),
+      transform 0.9s var(--ease-soft);
   }
   .hero-slide.is-active .hero-copy > * {
     opacity: 1;
     transform: none;
   }
   .hero-copy > *:nth-child(2) {
-    transition-delay: 0.08s;
+    transition-delay: 0.1s;
   }
   .hero-copy > *:nth-child(3) {
-    transition-delay: 0.16s;
+    transition-delay: 0.18s;
   }
   .hero-copy > *:nth-child(4) {
-    transition-delay: 0.24s;
+    transition-delay: 0.26s;
+  }
+  .hero-copy > *:nth-child(5) {
+    transition-delay: 0.34s;
   }
 
   .hero-arrow {
-    position: absolute;
-    top: 50%;
-    z-index: 10;
-    transform: translateY(-50%);
-    display: flex;
-    height: 46px;
-    width: 46px;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid color-mix(in srgb, var(--color-champagne) 32%, transparent);
-    border-radius: 999px;
-    background: rgba(21, 11, 16, 0.32);
-    color: var(--color-champagne-soft);
-    font-size: 24px;
-    line-height: 1;
-    backdrop-filter: blur(4px);
+    display: grid;
+    height: 2.75rem;
+    width: 2.75rem;
+    place-items: center;
+    border: 1px solid rgba(251, 249, 245, 0.25);
+    color: rgba(251, 249, 245, 0.8);
     cursor: pointer;
     transition:
-      background-color 0.3s var(--ease-soft),
+      border-color 0.3s var(--ease-soft),
       color 0.3s var(--ease-soft);
   }
   .hero-arrow:hover {
-    background: var(--color-champagne);
-    color: #241318;
-  }
-  .hero-prev {
-    left: 16px;
-  }
-  .hero-next {
-    right: 16px;
-  }
-  @media (max-width: 767px) {
-    .hero-arrow {
-      display: none;
-    }
+    border-color: var(--color-champagne);
+    color: var(--color-champagne);
   }
 
-  .hero-dots {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    z-index: 10;
-    display: flex;
-    transform: translateX(-50%);
-    gap: 10px;
-  }
   .hero-dot {
-    height: 9px;
-    width: 9px;
+    height: 2px;
+    width: 1.25rem;
     border: 0;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-champagne-soft) 34%, transparent);
+    padding: 0;
+    background: rgba(251, 249, 245, 0.3);
     cursor: pointer;
     transition:
-      width 0.3s var(--ease-soft),
-      background-color 0.3s var(--ease-soft);
+      width 0.5s var(--ease-soft),
+      background-color 0.5s var(--ease-soft);
+  }
+  .hero-dot:hover {
+    background: rgba(251, 249, 245, 0.6);
   }
   .hero-dot.is-active {
-    width: 26px;
-    background: var(--color-champagne-soft);
+    width: 2.5rem;
+    background: var(--color-champagne);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -527,9 +764,9 @@ const jsonLd = {
 </style>
 
 <script>
-  // Homepage: auto-advancing banner carousel + live refresh of the banner,
-  // featured products and category tiles — so admin edits appear on refresh
-  // without a full site rebuild. The static render is the instant fallback.
+  // Homepage: auto-advancing banner carousel, scroll reveals, and live refresh
+  // of the banner, featured products and category tiles — so admin edits appear
+  // on refresh without a full site rebuild. The static render is the fallback.
   const fmtINR = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -539,6 +776,26 @@ const jsonLd = {
     String(s ?? "").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
     );
+
+  /* ---------- scroll reveal ---------- */
+  // Opting in from JS keeps the page fully visible when scripts don't run.
+  document.documentElement.classList.add("js-reveal");
+  const revealObserver = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.setAttribute("data-visible", "true");
+        revealObserver.unobserve(e.target);
+      }
+    },
+    { threshold: 0.12 },
+  );
+  function observeReveals(root = document) {
+    root
+      .querySelectorAll(".reveal:not([data-visible])")
+      .forEach((el) => revealObserver.observe(el));
+  }
+  observeReveals();
 
   // Idempotent carousel init — safe to re-run after the hero is re-rendered.
   // The timer lives in module scope so a re-init never leaves an old one firing,
@@ -607,22 +864,33 @@ const jsonLd = {
     const img = src
       ? `<img src="${esc(src)}" alt="${esc(s.heading)}" width="${w}" height="${h}" loading="${i === 0 ? "eager" : "lazy"}" fetchpriority="${i === 0 ? "high" : "auto"}" class="absolute inset-0 h-full w-full object-cover">`
       : "";
-    const sub = s.subtext ? `<p class="mt-5 max-w-md text-ivory/85">${esc(s.subtext)}</p>` : "";
-    const secondary = s.secondaryLabel
-      ? `<a href="${esc(s.secondaryLink)}" class="btn btn-outline">${esc(s.secondaryLabel)}</a>`
+    const sub = s.subtext
+      ? `<p class="mt-5 max-w-md text-sm leading-relaxed text-ivory/65 sm:text-base">${esc(s.subtext)}</p>`
       : "";
-    return `<div class="hero-slide relative flex h-full w-full flex-shrink-0 items-end" aria-roledescription="slide" aria-label="Banner ${i + 1} of ${total}">${img}<div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/30 to-[#150b10]/50"></div><div class="container-page relative pb-16 md:pb-24"><div class="hero-copy"><p class="eyebrow flex items-center gap-2"><span class="gem-mark">◆</span> Fine jewellery · India</p><h1 class="mt-4 max-w-2xl font-serif text-4xl leading-[1.08] md:text-6xl"><span class="text-metallic is-animated">${esc(s.heading)}</span></h1>${sub}<div class="mt-8 flex flex-wrap gap-4"><a href="${esc(s.buttonLink)}" class="btn btn-primary">${esc(s.buttonLabel)}</a>${secondary}</div></div></div></div>`;
+    const secondary = s.secondaryLabel
+      ? `<a href="${esc(s.secondaryLink)}" class="cta cta-ghost inline-flex items-center justify-center">${esc(s.secondaryLabel)}</a>`
+      : "";
+    return `<div class="hero-slide relative w-full shrink-0" aria-roledescription="slide" aria-label="Banner ${i + 1} of ${total}"><div class="relative aspect-[4/5] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-[21/9]">${img}<div aria-hidden="true" class="absolute inset-0 bg-gradient-to-r from-[#150b10]/85 via-[#150b10]/45 to-[#150b10]/20"></div><span aria-hidden="true" class="glow-pulse pointer-events-none absolute -right-16 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-champagne/25 blur-3xl sm:h-96 sm:w-96"></span><span aria-hidden="true" class="spin-slow pointer-events-none absolute -bottom-24 right-6 hidden h-72 w-72 rounded-full border border-champagne/20 lg:block"><span class="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-champagne/70"></span></span><div class="absolute inset-0 grid items-center px-6 sm:px-12 lg:px-20"><div class="hero-copy max-w-xl"><p class="eyebrow !text-champagne-soft">Fine jewellery · India</p><h1 class="mt-4 whitespace-pre-line font-serif text-4xl leading-[1.05] text-ivory sm:text-5xl lg:text-6xl">${esc(s.heading)}</h1><span aria-hidden="true" class="mt-6 block h-px w-24 bg-gradient-to-r from-champagne to-transparent"></span>${sub}<div class="mt-8 flex flex-wrap gap-3"><a href="${esc(s.buttonLink)}" class="cta cta-light inline-flex items-center justify-center">${esc(s.buttonLabel)}</a>${secondary}</div></div></div></div></div>`;
   }
   function heroHTML(slides) {
     const total = slides.length;
-    const track = `<div class="hero-track flex h-full w-full" id="hero-track">${slides.map((s, i) => heroSlideHTML(s, i, total)).join("")}</div>`;
-    const frame = `<div class="pointer-events-none absolute inset-3 z-[5] border hairline md:inset-6"></div>`;
+    const track = `<div class="hero-track flex w-full" id="hero-track">${slides.map((s, i) => heroSlideHTML(s, i, total)).join("")}</div>`;
     let controls = "";
     if (total > 1) {
-      const dots = slides.map((_, i) => `<button type="button" class="hero-dot" data-dot="${i}" aria-label="Go to banner ${i + 1}"></button>`).join("");
-      controls = `<button type="button" class="hero-arrow hero-prev" aria-label="Previous banner">‹</button><button type="button" class="hero-arrow hero-next" aria-label="Next banner">›</button><div class="hero-dots" aria-label="Choose banner">${dots}</div>`;
+      const dots = slides
+        .map((_, i) => `<button type="button" class="hero-dot" data-dot="${i}" aria-label="Go to banner ${i + 1}"></button>`)
+        .join("");
+      const arrow = (dir, label, path) =>
+        `<button type="button" class="hero-arrow hero-${dir}" aria-label="${label}"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>`;
+      controls =
+        `<div class="absolute inset-x-0 bottom-6 z-10 flex items-center justify-between px-6 sm:px-12 lg:px-20">` +
+        `<div class="hero-dots flex items-center gap-2" aria-label="Choose banner">${dots}</div>` +
+        `<div class="hidden gap-2 sm:flex">` +
+        arrow("prev", "Previous banner", "M19 12H5m0 0 6-6m-6 6 6 6") +
+        arrow("next", "Next banner", "M5 12h14m0 0-6-6m6 6-6 6") +
+        `</div></div>`;
     }
-    return track + frame + controls;
+    return track + controls;
   }
 
   function cardHTML(p, priority) {
@@ -631,32 +899,32 @@ const jsonLd = {
     const onSale = p.compareAtPrice && p.compareAtPrice > p.price;
     const disc = onSale ? Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100) : 0;
     const base = img
-      ? `<img src="/api/images/${img.id}" width="${img.width}" height="${img.height}" alt="${esc(p.name)}" loading="${priority ? "eager" : "lazy"}" class="h-full w-full object-cover transition-all duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05]${hov ? " group-hover:opacity-0" : ""}">`
-      : "";
+      ? `<img src="/api/images/${img.id}" width="${img.width}" height="${img.height}" alt="${esc(p.name)}" loading="${priority ? "eager" : "lazy"}" class="aspect-[4/5] w-full object-cover">`
+      : `<div class="aspect-[4/5] w-full bg-sand"></div>`;
     const hover = hov
-      ? `<img src="/api/images/${hov.id}" width="${hov.width}" height="${hov.height}" alt="" aria-hidden="true" loading="lazy" class="absolute inset-0 h-full w-full scale-[1.05] object-cover opacity-0 transition-opacity duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100">`
+      ? `<div class="absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100"><img src="/api/images/${hov.id}" width="${hov.width}" height="${hov.height}" alt="" aria-hidden="true" loading="lazy" class="aspect-[4/5] w-full object-cover"></div>`
       : "";
     const badge =
       onSale && p.inStock
-        ? `<span class="pill absolute left-3 top-3">−${disc}%</span>`
+        ? `<span class="eyebrow absolute left-0 top-4 z-10 bg-ink/90 px-3 py-1.5 text-ivory">−${disc}%</span>`
         : !p.inStock
-          ? `<span class="pill absolute left-3 top-3 !text-charcoal/80">Sold out</span>`
+          ? `<span class="eyebrow absolute left-0 top-4 z-10 bg-ink/90 px-3 py-1.5 text-ivory">Sold out</span>`
           : "";
     const price =
       `<span class="text-champagne">${fmtINR.format(p.price)}</span>` +
-      (onSale ? `<span class="text-charcoal/40 line-through">${fmtINR.format(p.compareAtPrice)}</span>` : "");
-    return `<a href="/product/${encodeURIComponent(p.slug)}" class="group block" aria-label="${esc(p.name)}, ${fmtINR.format(p.price)}"><div class="card-lux relative overflow-hidden rounded-[3px]" style="aspect-ratio:4 / 5;">${base}${hover}${badge}<div class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-[#150b10]/75 to-transparent pb-4 pt-10 opacity-0 transition-opacity duration-500 group-hover:opacity-100"><span class="text-[11px] uppercase tracking-[0.22em] text-champagne-soft">View piece →</span></div></div><div class="pt-4 text-center"><p class="text-[10px] uppercase tracking-[0.2em] text-champagne/70">${esc(p.category)}</p><h3 class="mt-1.5 font-serif text-lg leading-snug transition-colors group-hover:text-ink">${esc(p.name)}</h3><p class="mt-1.5 flex items-baseline justify-center gap-2 text-sm">${price}</p></div></a>`;
+      (onSale ? `<span class="text-taupe/70 line-through">${fmtINR.format(p.compareAtPrice)}</span>` : "");
+    return `<a href="/product/${encodeURIComponent(p.slug)}" class="group block" aria-label="${esc(p.name)}, ${fmtINR.format(p.price)}"><div class="sheen-on-hover relative overflow-hidden bg-bone"><div class="transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]">${base}</div>${hover}${badge}</div><div class="pt-4"><p class="eyebrow !text-taupe">${esc(p.material ?? "")}</p><h3 class="mt-1.5 font-serif text-lg leading-snug text-ink transition-colors duration-500 group-hover:text-champagne">${esc(p.name)}</h3><p class="mt-1 flex items-baseline gap-2 text-sm text-charcoal">${price}</p></div></a>`;
   }
 
-  const TILE_BASE = "card-lux group relative flex aspect-[3/4] w-36 shrink-0 snap-start overflow-hidden rounded-[3px] sm:w-40";
-  const TILE_TEXT = TILE_BASE + " flex-col items-center justify-center gap-3 px-3 text-center";
-  function tileHTML(name, imgId) {
-    if (imgId) {
-      return `<a href="/shop?category=${encodeURIComponent(name)}" class="${TILE_BASE}"><img src="/api/images/${imgId}" alt="${esc(name)}" loading="lazy" class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"><div class="absolute inset-0 bg-gradient-to-t from-[#150b10]/85 via-[#150b10]/25 to-transparent"></div><div class="absolute inset-x-0 bottom-0 flex flex-col items-center p-3 text-center"><span class="font-serif text-lg leading-tight text-white sm:text-xl">${esc(name)}</span><span class="mt-1 text-[10px] uppercase tracking-[0.18em] text-champagne-soft">Explore →</span></div></a>`;
-    }
-    return `<a href="/shop?category=${encodeURIComponent(name)}" class="${TILE_TEXT}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-lg leading-tight tracking-wide sm:text-xl">${esc(name)}</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
+  const TILE_WRAP = "group lift-card block w-[58vw] shrink-0 snap-start sm:w-[34vw] lg:w-[19rem]";
+  function tileHTML(name, imgId, i, count) {
+    const media = imgId
+      ? `<img src="/api/images/${imgId}" alt="${esc(name)}" loading="lazy" class="aspect-[3/4] w-full object-cover">`
+      : `<div class="grid aspect-[3/4] w-full place-items-center bg-sand"><span class="gem-mark text-2xl opacity-50">◆</span></div>`;
+    const label = typeof count === "number" ? `${count} ${count === 1 ? "piece" : "pieces"}` : "Explore";
+    return `<a href="/shop?category=${encodeURIComponent(name)}" class="${TILE_WRAP}"><div class="sheen-on-hover relative overflow-hidden bg-ivory"><div class="transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.07]">${media}</div><span class="eyebrow absolute right-3 top-3 z-10 !text-ink/25">${String(i + 1).padStart(2, "0")}</span></div><div class="flex items-baseline justify-between border-b border-border py-4 transition-colors group-hover:border-champagne"><h3 class="font-serif text-xl text-ink transition-transform duration-500 group-hover:translate-x-1">${esc(name)}</h3><span class="text-xs tracking-widest text-taupe">${esc(label)}</span></div></a>`;
   }
-  const antiTarnishTile = `<a href="/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}" class="${TILE_TEXT}"><span class="gem-mark opacity-60 transition-opacity group-hover:opacity-100">◆</span><span class="font-serif text-base leading-tight tracking-wide sm:text-lg">Anti-Tarnish<br>Jewels</span><span class="gold-rule w-8 transition-all duration-500 group-hover:w-16"></span><span class="text-[10px] uppercase tracking-[0.18em] text-champagne/70 transition-colors group-hover:text-champagne">Explore →</span></a>`;
+  const antiTarnishTile = `<a href="/shop?category=${encodeURIComponent("Anti-Tarnish Jewels")}" class="${TILE_WRAP}"><div class="sheen-on-hover relative overflow-hidden bg-ivory"><div class="grid aspect-[3/4] w-full place-items-center bg-sand transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.07]"><span class="gem-mark text-2xl opacity-50">◆</span></div></div><div class="flex items-baseline justify-between border-b border-border py-4 transition-colors group-hover:border-champagne"><h3 class="font-serif text-xl text-ink transition-transform duration-500 group-hover:translate-x-1">Anti-Tarnish Jewels</h3><span class="text-xs tracking-widest text-taupe">Explore</span></div></a>`;
 
   function presentMains(products, cats) {
     const leaves = new Set(products.map((p) => p.category));
@@ -670,7 +938,7 @@ const jsonLd = {
 
   /* ---------- live refresh ---------- */
   // ---- trending helpers ----
-  const TCAT = "tcat border hairline px-4 py-2 text-xs uppercase tracking-[0.12em] text-charcoal/70 transition-colors data-[active=true]:border-charcoal data-[active=true]:bg-charcoal data-[active=true]:text-ivory";
+  const TCAT = "tcat eyebrow border border-border px-5 py-2.5 text-taupe transition-colors data-[active=true]:border-ink data-[active=true]:bg-ink data-[active=true]:text-ivory";
   const tTabs = document.getElementById("trending-tabs");
   const tGrid = document.getElementById("trending-grid");
   function applyTrendFilter(tc) {
@@ -686,7 +954,7 @@ const jsonLd = {
     if (b) applyTrendFilter(b.dataset.tcat);
   });
   function trendItemHTML(p, i, mainOf) {
-    return `<div class="trend-item" data-main="${esc(mainOf(p.category))}">${cardHTML(p, i < 4)}</div>`;
+    return `<div class="trend-item w-[72vw] shrink-0 snap-start sm:w-[42vw] lg:w-[calc((100%-6rem)/4)]" data-main="${esc(mainOf(p.category))}">${cardHTML(p, i < 4)}</div>`;
   }
   const BENTO_POS = [
     "col-span-2 row-start-2 aspect-[3/2] md:col-start-2 md:col-span-2 md:row-span-2 md:row-start-1 md:aspect-auto",
@@ -696,16 +964,20 @@ const jsonLd = {
     "col-start-2 row-start-3 aspect-square md:col-start-4 md:row-start-2 md:aspect-auto",
   ];
   function bentoCellHTML(b, i) {
-    const cls = `bento-cell group relative block overflow-hidden rounded-[3px] ${BENTO_POS[i]} ${b.imageId ? "card-lux" : "surface"}`;
-    const img = b.imageId
-      ? `<img src="/api/images/${b.imageId}" alt="${esc(b.caption || "")}" loading="lazy" class="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105">`
+    const cls = `bento-cell group sheen-on-hover relative block overflow-hidden ${BENTO_POS[i]} ${b.imageId ? "" : "bg-bone"}`;
+    if (!b.imageId) return `<div class="${cls}"></div>`;
+    const img = `<img src="/api/images/${b.imageId}" alt="${esc(b.caption || "")}" loading="lazy" class="h-full w-full object-cover transition-transform duration-[1000ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]">`;
+    const shade = `<div aria-hidden="true" class="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent transition-opacity duration-700 group-hover:opacity-90"></div>`;
+    const frame = `<span aria-hidden="true" class="pointer-events-none absolute inset-4 z-10 border border-champagne/0 transition-all duration-700 group-hover:inset-3 group-hover:border-champagne/40"></span>`;
+    const discover = b.link
+      ? `<span class="eyebrow mt-4 inline-flex items-center gap-2 !text-champagne-soft">Discover <span class="transition-transform duration-500 group-hover:translate-x-1.5">→</span></span>`
       : "";
-    const cap = b.imageId && b.caption
-      ? `<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150b10]/70 to-transparent p-4"><span class="font-serif text-lg text-ivory">${esc(b.caption)}</span></div>`
+    const cap = b.caption
+      ? `<div class="absolute inset-x-0 bottom-0 z-10 p-6"><h3 class="font-serif text-2xl text-ivory transition-transform duration-700 group-hover:-translate-y-1">${esc(b.caption)}</h3>${discover}</div>`
       : "";
-    const tag = b.imageId && b.link ? "a" : "div";
-    const href = b.imageId && b.link ? ` href="${esc(b.link)}"` : "";
-    return `<${tag}${href} class="${cls}">${img}${cap}</${tag}>`;
+    const tag = b.link ? "a" : "div";
+    const href = b.link ? ` href="${esc(b.link)}"` : "";
+    return `<${tag}${href} class="${cls}">${img}${shade}${frame}${cap}</${tag}>`;
   }
 
   async function hydrate() {
@@ -760,7 +1032,11 @@ const jsonLd = {
       });
       if (tiles && tilesSigVal !== (tiles.dataset.tilesSig ?? "")) {
         const catImg = new Map(cats.map((c) => [c.name, c.imageId ?? null]));
-        tiles.innerHTML = presentMains(products, cats).map((n) => tileHTML(n, catImg.get(n))).join("") + antiTarnishTile;
+        const countOf = (main) => products.filter((p) => mainOf(p.category) === main).length;
+        tiles.innerHTML =
+          presentMains(products, cats)
+            .map((n, i) => tileHTML(n, catImg.get(n), i, countOf(n)))
+            .join("") + antiTarnishTile;
         tiles.dataset.tilesSig = tilesSigVal;
       }
 
@@ -790,7 +1066,9 @@ const jsonLd = {
         const na = products.filter((p) => hasTag(p, "new arrivals")).slice(0, 12);
         const naSig = prodSig(na);
         if (naSig !== (naGrid.dataset.naSig ?? "")) {
-          naGrid.innerHTML = na.map((p, i) => cardHTML(p, i < 4)).join("");
+          naGrid.innerHTML = na
+            .map((p, i) => `<div class="w-[72vw] shrink-0 snap-start sm:w-auto">${cardHTML(p, i < 4)}</div>`)
+            .join("");
           naGrid.dataset.naSig = naSig;
           document.getElementById("newarrivals-section")?.classList.toggle("hidden", na.length === 0);
         }
@@ -812,6 +1090,9 @@ const jsonLd = {
           bentoSec.classList.toggle("hidden", !boxes.some((b) => b.imageId));
         }
       }
+
+      // Freshly injected sections still need their reveal animation wired up.
+      observeReveals();
     } catch (_) {
       /* Network/API hiccup — keep the server-rendered homepage. */
     }
