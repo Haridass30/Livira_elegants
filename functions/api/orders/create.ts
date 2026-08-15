@@ -43,7 +43,33 @@ import {
 } from "../../../src/lib/pricing";
 import type { CreateOrderRequest, CheckoutMethod } from "../../../src/lib/types";
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
+/** Migration 0008 adds the columns the verification flow reads and writes. */
+function isMissingSchema(err: unknown): boolean {
+  return /no such (column|table)/i.test(String(err));
+}
+
+/**
+ * Nothing may escape as a raw 500: the browser can only parse JSON, so an
+ * uncaught throw here reaches the customer as "something went wrong" with no
+ * clue what broke. Every failure leaves through this wrapper as JSON.
+ */
+export const onRequestPost: PagesFunction<Env> = async (ctx) => {
+  try {
+    return await createOrder(ctx);
+  } catch (err) {
+    console.error("[create] unhandled", err);
+    if (isMissingSchema(err)) {
+      return serverError(
+        "Online payment is temporarily unavailable (the store database needs its " +
+          "latest update). Please choose Cash on Delivery or contact us — " +
+          "owner: run `npm run db:remote:0008`.",
+      );
+    }
+    return serverError("Could not place the order. Please try again.");
+  }
+};
+
+const createOrder: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   let body: CreateOrderRequest;
   try {
     body = (await request.json()) as CreateOrderRequest;
@@ -263,6 +289,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     });
   } catch (err) {
     console.error("[create] error", err);
+    if (isMissingSchema(err)) throw err; // let the wrapper name the real cause
     return serverError("Could not place the order. Please try again.");
   }
 };

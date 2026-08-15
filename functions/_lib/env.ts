@@ -6,6 +6,10 @@ export interface Env {
   /** D1 database binding. */
   DB: D1Database;
 
+  /** Static-asset fetcher, provided automatically by Cloudflare Pages. Used by
+   *  the live product-page fallback to read an already-built page as a shell. */
+  ASSETS: Fetcher;
+
   /** Public Razorpay key id (also exposed to the client). */
   RAZORPAY_KEY_ID: string;
   /** SECRET — server only. Never sent to the browser. */

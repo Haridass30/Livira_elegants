@@ -288,13 +288,30 @@ export default function CheckoutForm() {
           items: lines.map((l) => ({ slug: l.slug, qty: l.qty })),
         }),
       });
-      const data = await res.json();
+      // Read as text first: a server that fell over returns an HTML error page,
+      // and res.json() would throw and hide the status behind "check your
+      // connection". Whatever comes back, the customer gets a real reason.
+      const raw = await res.text();
+      let data: {
+        ok?: boolean;
+        order_ref?: string;
+        status?: string;
+        error?: string;
+        errors?: string[];
+      } | null = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
 
-      if (!res.ok) {
+      if (!res.ok || !data?.ok) {
         setServerError(
-          (data?.errors && data.errors.join(" ")) ||
+          data?.errors?.join(" ") ||
             data?.error ||
-            "We couldn't place your order. Please try again.",
+            (res.status === 404
+              ? "Checkout isn't reachable on this server. If you're running `npm run dev`, use `npm run pages:dev` — the order API only runs there."
+              : `We couldn't place your order (error ${res.status}). Please try again or contact us.`),
         );
         setBusy(false);
         return;
@@ -302,9 +319,13 @@ export default function CheckoutForm() {
 
       // Order recorded. For manual UPI that means "awaiting_payment", not a
       // sale — the confirmation page words itself from this status.
-      goToConfirmation(data.order_ref, data.status ?? "");
-    } catch {
-      setServerError("Something went wrong. Please check your connection and retry.");
+      goToConfirmation(data.order_ref ?? "", data.status ?? "");
+    } catch (err) {
+      console.error("[checkout] order request failed", err);
+      setServerError(
+        "We couldn't reach the server. Please check your connection and retry — " +
+          "if it keeps happening, message us and we'll take the order directly.",
+      );
       setBusy(false);
     }
   }
