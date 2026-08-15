@@ -315,19 +315,18 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Logo-matched dark chrome — HEADER & FOOTER only (rest of site is light).
- * Deep plum background, warm cream text, rose-gold accents.
+ * Chrome. The HEADER is light — a frosted ivory bar carrying the
+ * transparent rose-gold logo, continuous with the announcement bar above
+ * it. The FOOTER stays deep plum to close the page.
  * ------------------------------------------------------------------ */
-.site-header-dark {
-  background: linear-gradient(180deg, #2a1626 0%, #1b0f18 100%);
-  border-bottom-color: rgba(207, 154, 110, 0.26);
+.site-header-light {
+  /* Slightly translucent so the blur reads against the hero photo below. */
+  background: color-mix(in srgb, var(--color-ivory) 90%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--color-champagne) 28%, transparent);
 }
-/* Cart button is a React island (fixed text-charcoal) — recolour it here. */
-.site-header-dark [aria-label^="Open bag"] {
-  color: #ecdccf;
-}
-.site-header-dark [aria-label^="Open bag"]:hover {
-  color: #fff;
+/* Cart button is a React island (fixed text-charcoal) — pin its hover here. */
+.site-header-light [aria-label^="Open bag"]:hover {
+  color: var(--color-ink);
 }
 
 footer.site-footer-dark {

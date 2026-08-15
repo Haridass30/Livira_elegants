@@ -16,20 +16,31 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
 <header
   id="site-header"
   class:list={[
-    "site-header-dark fixed inset-x-0 z-40 border-b backdrop-blur",
+    "site-header-light fixed inset-x-0 z-40 border-b backdrop-blur",
     hasBar ? "top-9" : "top-0",
   ]}
 >
   <div class="container-page flex h-16 items-center justify-between md:h-20">
-    <!-- Left: mobile menu toggle + desktop nav -->
-    <div class="flex items-center gap-9">
+    <!-- Left: brand logo, then the mobile menu toggle / desktop nav -->
+    <div class="flex items-center gap-3 md:gap-9">
+      <a href="/" class="shrink-0" aria-label={`${site.name} — home`}>
+        <Image
+          src={logo}
+          alt={site.name}
+          widths={[110, 150, 200]}
+          sizes="(min-width: 768px) 64px, 48px"
+          loading="eager"
+          class="h-[48px] w-auto md:h-[64px]"
+        />
+      </a>
+
       <button
         type="button"
         id="menu-toggle"
         aria-label="Open menu"
         aria-expanded="false"
         aria-controls="mobile-nav"
-        class="flex h-10 w-10 items-center justify-center text-[#ecdccf]/85 md:hidden"
+        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-ink md:hidden"
       >
         <span class="sr-only">Menu</span>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -44,7 +55,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
               href={item.href}
               class:list={[
                 "link-underline text-[0.78rem] uppercase tracking-[0.16em]",
-                isActive(item.href) ? "text-[#dcab7e]" : "text-[#ecdccf]/80 hover:text-white",
+                isActive(item.href) ? "text-champagne" : "text-charcoal/75 hover:text-ink",
               ]}
             >
               {item.label}
@@ -54,22 +65,6 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
       </nav>
     </div>
 
-    <!-- Brand logo, centered -->
-    <a
-      href="/"
-      class="absolute left-1/2 -translate-x-1/2"
-      aria-label={`${site.name} — home`}
-    >
-      <Image
-        src={logo}
-        alt={site.name}
-        widths={[96, 130, 180]}
-        sizes="(min-width: 768px) 62px, 48px"
-        loading="eager"
-        class="h-[48px] w-auto md:h-[62px]"
-      />
-    </a>
-
     <!-- Right: search + account + cart -->
     <div class="flex items-center gap-1">
       <button
@@ -78,7 +73,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
         aria-label="Search"
         aria-expanded="false"
         aria-controls="search-panel"
-        class="flex h-10 w-10 items-center justify-center text-[#ecdccf]/85 hover:text-white"
+        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-ink"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.5" />
@@ -88,7 +83,7 @@ const hasBar = (await getSiteContent()).announcements.length > 0;
       <a
         href="/account"
         aria-label="My account"
-        class="flex h-10 w-10 items-center justify-center text-[#ecdccf]/85 hover:text-white"
+        class="flex h-10 w-10 items-center justify-center text-charcoal/80 hover:text-ink"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.5" />
